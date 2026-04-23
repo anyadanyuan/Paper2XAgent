@@ -1,0 +1,101 @@
+Collecting package metadata (current_repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: /root/miniconda3/envs/llama
+
+  added / updated specs:
+    - bitsandbytes
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    bitsandbytes-0.49.1        |cpu_py311h5f84f9f_0         453 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    blas-1.0                   |              mkl           6 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    filelock-3.20.3            |  py311h06a4308_0          38 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    fsspec-2026.2.0            |  py311h7040dfc_0         636 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    gmp-6.3.0                  |       h6a678d5_0         608 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    gmpy2-2.2.2                |  py311ha78e65c_0         254 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    importlib-metadata-8.7.1   |  py311h06a4308_0          69 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    intel-openmp-2025.0.0      |    h06a4308_1171        22.3 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    jinja2-3.1.6               |  py311h06a4308_0         358 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    libabseil-20260107.0       | cxx17_h6199ee8_0         1.3 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    libprotobuf-6.33.5         |       h4435b4a_0         3.5 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    libtorch-2.8.0             |cpu_mkl_hd526b63_102        56.8 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    libuv-1.52.0               |       heb5a705_0         881 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    markupsafe-3.0.2           |  py311h5eee18b_0          27 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mkl-2025.0.0               |     hacee8c2_941       127.4 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mkl-service-2.5.2          |  py311hacdc0fc_0          74 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mkl_fft-2.1.1              |  py311h8fe796d_0         176 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mkl_random-1.3.0           |  py311h505adc9_0         317 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mpc-1.3.1                  |       h5eee18b_0         129 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mpfr-4.2.1                 |       h5eee18b_0         821 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    mpmath-1.3.0               |  py311h06a4308_0         1.0 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    networkx-3.6.1             |  py311h06a4308_0         3.2 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    numpy-2.4.3                |  py311h08c6c3d_0          20 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    numpy-base-2.4.3           |  py311h00548fb_0         8.6 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    opentelemetry-api-1.38.0   |  py311h06a4308_0          99 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    packaging-25.0             |  py311h06a4308_1         191 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    pytorch-2.8.0              |cpu_mkl_py311hc8d732a_102        32.9 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    sleef-3.5.1                |       h5eee18b_2         1.3 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    sympy-1.14.0               |  py311h06a4308_1        14.6 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    tbb-2022.0.0               |       hdb19cb5_0         188 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    tbb-devel-2022.0.0         |       hdb19cb5_0         1.1 MB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    typing-extensions-4.15.0   |  py311h06a4308_0          11 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    typing_extensions-4.15.0   |  py311h06a4308_0         102 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    zipp-3.23.0                |  py311h06a4308_0          31 KB  https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+    ------------------------------------------------------------
+                                           Total:       279.5 MB
+
+The following NEW packages will be INSTALLED:
+
+  bitsandbytes       anaconda/pkgs/main/linux-64::bitsandbytes-0.49.1-cpu_py311h5f84f9f_0 
+  blas               anaconda/pkgs/main/linux-64::blas-1.0-mkl 
+  filelock           anaconda/pkgs/main/linux-64::filelock-3.20.3-py311h06a4308_0 
+  fsspec             anaconda/pkgs/main/linux-64::fsspec-2026.2.0-py311h7040dfc_0 
+  gmp                anaconda/pkgs/main/linux-64::gmp-6.3.0-h6a678d5_0 
+  gmpy2              anaconda/pkgs/main/linux-64::gmpy2-2.2.2-py311ha78e65c_0 
+  importlib-metadata anaconda/pkgs/main/linux-64::importlib-metadata-8.7.1-py311h06a4308_0 
+  intel-openmp       anaconda/pkgs/main/linux-64::intel-openmp-2025.0.0-h06a4308_1171 
+  jinja2             anaconda/pkgs/main/linux-64::jinja2-3.1.6-py311h06a4308_0 
+  libabseil          anaconda/pkgs/main/linux-64::libabseil-20260107.0-cxx17_h6199ee8_0 
+  libgcc             anaconda/pkgs/main/linux-64::libgcc-15.2.0-h69a1729_7 
+  libprotobuf        anaconda/pkgs/main/linux-64::libprotobuf-6.33.5-h4435b4a_0 
+  libstdcxx          anaconda/pkgs/main/linux-64::libstdcxx-15.2.0-h39759b7_7 
+  libtorch           anaconda/pkgs/main/linux-64::libtorch-2.8.0-cpu_mkl_hd526b63_102 
+  libuv              anaconda/pkgs/main/linux-64::libuv-1.52.0-heb5a705_0 
+  markupsafe         anaconda/pkgs/main/linux-64::markupsafe-3.0.2-py311h5eee18b_0 
+  mkl                anaconda/pkgs/main/linux-64::mkl-2025.0.0-hacee8c2_941 
+  mkl-service        anaconda/pkgs/main/linux-64::mkl-service-2.5.2-py311hacdc0fc_0 
+  mkl_fft            anaconda/pkgs/main/linux-64::mkl_fft-2.1.1-py311h8fe796d_0 
+  mkl_random         anaconda/pkgs/main/linux-64::mkl_random-1.3.0-py311h505adc9_0 
+  mpc                anaconda/pkgs/main/linux-64::mpc-1.3.1-h5eee18b_0 
+  mpfr               anaconda/pkgs/main/linux-64::mpfr-4.2.1-h5eee18b_0 
+  mpmath             anaconda/pkgs/main/linux-64::mpmath-1.3.0-py311h06a4308_0 
+  networkx           anaconda/pkgs/main/linux-64::networkx-3.6.1-py311h06a4308_0 
+  numpy              anaconda/pkgs/main/linux-64::numpy-2.4.3-py311h08c6c3d_0 
+  numpy-base         anaconda/pkgs/main/linux-64::numpy-base-2.4.3-py311h00548fb_0 
+  opentelemetry-api  anaconda/pkgs/main/linux-64::opentelemetry-api-1.38.0-py311h06a4308_0 
+  packaging          anaconda/pkgs/main/linux-64::packaging-25.0-py311h06a4308_1 
+  pytorch            anaconda/pkgs/main/linux-64::pytorch-2.8.0-cpu_mkl_py311hc8d732a_102 
+  sleef              anaconda/pkgs/main/linux-64::sleef-3.5.1-h5eee18b_2 
+  sympy              anaconda/pkgs/main/linux-64::sympy-1.14.0-py311h06a4308_1 
+  tbb                anaconda/pkgs/main/linux-64::tbb-2022.0.0-hdb19cb5_0 
+  tbb-devel          anaconda/pkgs/main/linux-64::tbb-devel-2022.0.0-hdb19cb5_0 
+  typing-extensions  anaconda/pkgs/main/linux-64::typing-extensions-4.15.0-py311h06a4308_0 
+  typing_extensions  anaconda/pkgs/main/linux-64::typing_extensions-4.15.0-py311h06a4308_0 
+  zipp               anaconda/pkgs/main/linux-64::zipp-3.23.0-py311h06a4308_0 
+
+The following packages will be UPDATED:
+
+  ca-certificates                      2024.9.24-h06a4308_0 --> 2025.12.2-h06a4308_0 
+  libgcc-ng                               11.2.0-h1234567_1 --> 15.2.0-h166f726_7 
+  libgomp                                 11.2.0-h1234567_1 --> 15.2.0-h4751f2c_7 
+  libstdcxx-ng                            11.2.0-h1234567_1 --> 15.2.0-hc03a8fd_7 
+  openssl                                 3.0.15-h5eee18b_0 --> 3.5.5-h1b28b03_0 
+
+
+Proceed ([y]/n)? 

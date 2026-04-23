@@ -1,0 +1,27 @@
+# 运行时产物
+outputs/qwen/
+outputs/xkg/
+outputs/repos/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 环境
+.env
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# 大文件 / 模型权重
+*.bin
+*.safetensors
+*.pt
+*.ckpt

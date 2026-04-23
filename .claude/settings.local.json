@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import sys,json; d=json.load\\(open\\(''''/d/Projects/paper2XAgent/Paper2Code/data/paper2code/train_dataset.json''''\\)\\); print\\(f''''条目数: {len\\(d\\)}''''\\); print\\(''''第一条keys:'''', list\\(d[0].keys\\(\\)\\)\\); print\\(''''output前200字:'''', d[0][''''output''''][:200]\\)\")",
+      "Bash(python3:*)",
+      "Bash(python -c \":*)",
+      "Bash(python:*)",
+      "Bash(DRY_RUN=1 python pipeline/test_build_xkg.py 2>&1)",
+      "Bash(find /d/Projects/paper2XAgent/LLaMA-Factory/examples/train_full -name qwen*)",
+      "Bash(xargs head:*)",
+      "Bash(DRY_RUN=1 python /d/Projects/paper2XAgent/pipeline/test_build_xkg.py)",
+      "Bash(xargs ls:*)"
+    ]
+  }
+}

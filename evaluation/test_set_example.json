@@ -1,0 +1,9 @@
+[
+  {
+    "paper_id": "example_001",
+    "paper_title": "Example: Attention Is All You Need",
+    "paper_text": "[Abstract]\nWe propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely...\n\n[Method]\nThe Transformer model architecture consists of an encoder and decoder, each composed of a stack of N=6 identical layers. Each layer has two sub-layers: a multi-head self-attention mechanism, and a position-wise fully connected feed-forward network. We employ residual connections around each of the two sub-layers, followed by layer normalization...",
+    "ref_code": "import torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\nclass TransformerModel(nn.Module):\n    def __init__(self, d_model=512, nhead=8, num_layers=6):\n        super().__init__()\n        self.embedding = nn.Embedding(10000, d_model)\n        self.pos_encoding = nn.Parameter(torch.randn(1, 5000, d_model))\n        encoder_layer = nn.TransformerEncoderLayer(d_model, nhead)\n        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers)\n        self.fc = nn.Linear(d_model, 10000)\n    \n    def forward(self, x):\n        x = self.embedding(x) + self.pos_encoding[:, :x.size(1), :]\n        x = self.transformer(x)\n        return self.fc(x)",
+    "github_url": "https://github.com/example/transformer"
+  }
+]

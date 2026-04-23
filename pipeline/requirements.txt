@@ -1,0 +1,5 @@
+# build_xkg.py + validate_xkg.py
+openai>=1.30.0
+numpy>=1.24.0
+faiss-cpu>=1.7.4        # 可选，无则退化为 numpy cosine
+sentence-transformers>=2.6.0  # 可选，使用 --local_embed 时需要

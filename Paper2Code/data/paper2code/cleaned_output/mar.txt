@@ -1,0 +1,173 @@
+[Abstract]
+Conventional wisdom holds that autoregressive models for image generation are typically accompanied by vector-quantized tokens. We observe that while a discrete-valued space can facilitate representing a categorical distribution, it is not a necessity for autoregressive modeling. In this work, we propose to model the per-token probability distribution using a diffusion procedure, which allows us to apply autoregressive models in a continuous-valued space. Rather than using categorical cross-entropy loss, we define a Diffusion Loss function to model the pertoken probability. This approach eliminates the need for discrete-valued tokenizers. We evaluate its effectiveness across a wide range of cases, including standard autoregressive models and generalized masked autoregressive (MAR) variants. By removing vector quantization, our image generator achieves strong results while enjoying the speed advantage of sequence modeling. We hope this work will motivate the use of autoregressive generation in other continuous-valued domains and applications. Code is available at https://github.com/LTH14/mar.
+
+[Method]
+In a nutshell, our image generation approach is a sequence model operated on a tokenized latent space [6, 13, 40] . But unlike previous methods that are based on vector-quantized tokenizers (e.g., variants of VQ-VAE [51, 13] ), we aim to use continuous-valued tokenizers (e.g., [42] ). We propose Diffusion Loss that makes sequence models compatible with continuous-valued tokens.
+
+[Diffusion Loss]
+Denoising diffusion models [24] offer an effective framework to model arbitrary distributions. But unlike common usages of diffusion models for representing the joint distribution of all pixels or all tokens, in our case, the diffusion model is for representing the distribution for each token.
+
+[Diffusion Loss]
+Consider a continuous-valued vector x ∈ R d , which denotes the ground-truth token to be predicted at the next position. The autoregressive model produces a vector z ∈ R D at this position. Our goal is to model a probability distribution of x conditioned on z, that is, p(x|z). The loss function and sampler can be defined following the diffusion models [24, 33, 10] , described next.
+
+[Diffusion Loss]
+Loss function. Following [24, 33, 10] , the loss function of an underlying probability distribution p(x|z) can be formulated as a denoising criterion:
+
+[Diffusion Loss]
+EQUATION
+
+[Diffusion Loss]
+Here, ε ∈ R d is a noise vector sampled from N (0, I). The noise-corrupted vector x t is x t = √ ᾱt x + √ 1ᾱt ε, where ᾱt defines a noise schedule [24, 33] . t is a time step of the noise schedule. The noise estimator ε θ , parameterized by θ, is a small MLP network (see Sec. 4). The notation ε θ (x t |t, z) means that this network takes x t as the input, and is conditional on both t and z. As per [46, 47] , Eqn. (1) conceptually behaves like a form of score matching: it is related to a loss function concerning the score function of p(x|z), that is, ∇ log x p(x|z). Diffusion Loss is a parameterized loss function, in the same vein as the adversarial loss [15] or perceptual loss [56] .
+
+[Diffusion Loss]
+It is worth noticing that the conditioning vector z is produced by the autoregressive network: z = f (•), as we will discuss later. The gradient of z = f (•) is propagated from the loss function in Eqn. (1) . Conceptually, Eqn. (1) defines a loss function for training the network f (•).
+
+[Diffusion Loss]
+We note that the expectation E ε,t [•] in Eqn. (1) is over t, for any given z. As our denoising network is small, we can sample t multiple times for any given z. This helps improve the utilization of the loss function, without recomputing z. We sample t by 4 times during training for each image.
+
+[Diffusion Loss]
+Sampler. At inference time, it is required to draw samples from the distribution p(x|z). Sampling is done via a reverse diffusion procedure [24] :
+
+[Diffusion Loss]
+x t-1 = 1 √ αt x t -1-αt √ 1-ᾱt ε θ (x t |t, z) + σ t δ.
+
+[Diffusion Loss]
+Here δ is sampled from the Gaussian distribution N (0, I) and σ t is the noise level at time step t. Starting with x T ∼ N (0, I), this procedure produces a sample x 0 such that x 0 ∼ p(x|z) [24] .
+
+[Diffusion Loss]
+When using categorical distributions (Sec. 3.1), autoregressive models can enjoy the benefit of having a temperature τ for controlling sample diversity. In fact, existing literature, in both languages and images, has shown that temperature plays a critical role in autoregressive generation. It is desired for the diffusion sampler to offer a temperature counterpart. We adopt the temperature sampling presented in [10] . Conceptually, with temperature τ , one may want to sample from the (renormalized) probability of p(x|z)
+
+[Diffusion Loss]
+1 τ
+
+[Diffusion Loss]
+, whose score function is1 τ ∇ log x p(x|z). In practice, [10] suggests to either divide ε θ by τ , or scale the noise by τ . We adopt the latter option: we scale σ t δ in the sampler by τ . Intuitively, τ controls the sample diversity by adjusting the noise variance.
+
+[Diffusion Loss for Autoregressive Models]
+Next, we describe the autoregressive model with Diffusion Loss for image generation. Given a sequence of tokens {x 1 , x 2 , ..., x n } where the superscript 1 ≤ i ≤ n specifies an order, autoregressive models [17, 50, 49, 36, 7, 6] formulate the generation problem as "next token prediction":
+
+[Diffusion Loss for Autoregressive Models]
+EQUATION
+
+[Diffusion Loss for Autoregressive Models]
+A network is used to represent the conditional probability p(x i | x 1 , ..., x i-1 ). In our case, x i can be continuous-valued. We can rewrite this formulation in two parts. We first produce a conditioning vector z i by a network (e.g., Transformer [52] ) operating on previous tokens:
+
+[Diffusion Loss for Autoregressive Models]
+z i = f (x 1 , ..., x i-1
+
+[Diffusion Loss for Autoregressive Models]
+).
+
+[Diffusion Loss for Autoregressive Models]
+Then, we model the probability of the next token by p(x i |z i ). Diffusion Loss in Eqn. (1) can be applied on p(x i |z i ). The gradient is backpropagated to z i for updating the parameters of f (•).
+
+[Unifying Autoregressive and Masked Generative Models]
+We show that masked generative models, e.g., MaskGIT [4] and MAGE [29] , can be generalized under the broad concept of autoregression, i.e., next token prediction.
+
+[Unifying Autoregressive and Masked Generative Models]
+Bidirectional attention can perform autoregression. The concept of autoregression is orthogonal to network architectures: autoregression can be done by RNNs [50] , CNNs [49, 7] , and Transformers [38, 36, 6] . When using Transformers, although autoregressive models are popularly implemented by causal attention, we show that they can also be done by bidirectional attention. See Figure 2 . Note that the goal of autoregression is to predict the next token given the previous tokens; it does not constrain how the previous tokens communicate with the next token.
+
+[Unifying Autoregressive and Masked Generative Models]
+We can adopt the bidirectional attention implementation as done in Masked Autoencoder (MAE) [21] . See Figure 2(b) . Specifically, we first apply an MAE-style encoder 1 on the known tokens (with positional embedding [52] ). Then we concatenate the encoded sequence with mask tokens (with positional embedding added again), and map this sequence with an MAE-style decoder. The positional embedding on the mask tokens can let the decoder know at which positions are to be predicted. Unlike causal attention, here the loss is computed only on the unknown tokens [21] .
+
+[Unifying Autoregressive and Masked Generative Models]
+With the MAE-style trick, we allow all known tokens to see each other, and also allow all unknown tokens to see all known tokens. This full attention introduces better communication across tokens than causal attention. At inference time, we can generate tokens (one or more per step) using this bidirectional formulation, which is a form of autoregression. As a compromise, we cannot use the key-value (kv) cache [44] of causal attention to speed up inference. But as we can generate multiple tokens together, we can reduce generation steps to speed up inference. Full attention across tokens can significantly improve the quality and offer a better speed/accuracy trade-off. (a) A standard, raster-order autoregressive model predicts one next token based on the previous tokens. (b) A random-order autoregressive model predicts the next token given a random order. It behaves like randomly masking out tokens and then predicting one. (c) A Masked Autoregressive (MAR) model predicts multiple tokens simultaneously given a random order, which is conceptually analogous to masked generative models [4, 29] . In all cases, the prediction of one step can be done by causal or bidirectional attention (Figure 2 ).
+
+[Unifying Autoregressive and Masked Generative Models]
+Autoregressive models in random orders. To connect to masked generative models [4, 29] , we consider an autoregressive variant in random orders. The model is given a randomly permuted sequence. This random permutation is different for each sample. See Figure 3(b) . In this case, the position of the next token to be predicted needs to be accessible to the model. We adopt a strategy similar to MAE [21] : we add positional embedding (that corresponds to the unshuffled positions) to the decoder layers, which can tell what positions to predict. This strategy is applicable for both causal and bidirectional versions.
+
+[Unifying Autoregressive and Masked Generative Models]
+As shown in Figure 3 (b)(c), random-order autoregression behaves like a special form of masked generation, in which one token is generated at a time. We elaborate on this as follows.
+
+[Unifying Autoregressive and Masked Generative Models]
+Masked autoregressive models. In masked generative modeling [4, 29] , the models predict a random subset of tokens based on known/predicted tokens. This can be formulated as permuting the token sequence by a random order, and then predicting multiple tokens based on previous tokens. See Figure 3(c) . Conceptually, this is an autoregressive procedure, which can be written as estimating the conditional distribution: p({x i , x i+1 ..., x j } | x 1 , ..., x i-1 ), where multiple tokens {x i , x i+1 ..., x j } are to be predicted (i ≤ j). We can write this autoregressive model as:
+
+[Unifying Autoregressive and Masked Generative Models]
+EQUATION
+
+[Unifying Autoregressive and Masked Generative Models]
+Here, X k = {x i , x i+1 ..., x j } is a set of tokens to be predicted at the k-th step, with ∪ k X k = {x 1 , ..., x n }. In this sense, this is essentially "next set-of-tokens prediction", and thus is also a general form of autoregression. We refer to this variant as Masked Autoregressive (MAR) models. MAR is a random-order autoregressive model that can predict multiple tokens simultaneously.
+
+[Unifying Autoregressive and Masked Generative Models]
+MAR is conceptually related to MAGE [29] . However, MAR samples tokens by a temperature τ applied on the probability distribution of each token (which is the standard practice in generative language models like GPT). In contrast, MAGE (following MaskGIT [4] ) applies a temperature for sampling the locations of the tokens to be predicted: this is not a fully randomized order, which creates a gap between training-time and inference-time behavior.
+
+[Implementation]
+This section describes our implementation. We note that the concepts introduced in this paper are general and not limited to specific implementations. More detailed specifics are in Appendix B.
+
+[Diffusion Loss]
+Diffusion Process. Our diffusion process follows [33] . Our noise schedule has a cosine shape, with 1000 steps at training time; at inference time, it is resampled with fewer steps (by default, 100) [33] . Our denoising network predicts the noise vector ε [24] . The loss can optionally include the variational lower bound term L vlb [33] . Diffusion Loss naturally supports classifier-free guidance (CFG) [23] (detailed in Appendix B).
+
+[Diffusion Loss]
+Denoising MLP. We use a small MLP consisting of a few residual blocks [20] for denoising. Each block sequentially applies a LayerNorm (LN) [1] , a linear layer, SiLU [12] , and another linear layer, merging with a residual connection. By default, we use 3 blocks and a width of 1024 channels.
+
+[Diffusion Loss]
+The denoising MLP is conditioned on a vector z produced by the AR/MAR model (see Figure 1 ). The vector z is added to the time embedding of the noise schedule time-step t, which serves as the condition of the MLP in the LN layers via AdaLN [37] .
+
+[Properties of Diffusion Loss]
+Diffusion Loss vs. Cross-entropy Loss. We first compare continuous-valued tokens with Diffusion Loss and standard discrete-valued tokens with cross-entropy loss (Table 1 ). For fair comparisons, the tokenizers ("VQ-16" and "KL-16") are both downloaded from the LDM codebase [42] . These are popularly used tokenizers (e.g., [13, 42, 37] ). The comparisons are in four variants of AR/MAR. As shown in Table 1 , Diffusion Loss consistently outperforms the cross-entropy counterpart in all cases. Specifically, in MAR (e.g., the default), using Diffusion Loss can reduce FID by relatively ∼50%-60%. This is because the continuous-valued KL-16 has smaller compression loss than VQ-16 (discussed next in Table 2 ), and also because a diffusion process models distributions more effectively than categorical ones.
+
+[Properties of Diffusion Loss]
+In the following ablations, unless specified, we follow the "default" MAR setting in Table 1 .
+
+[Properties of Diffusion Loss]
+Flexibility of Diffusion Loss. One significant advantage of Diffusion Loss is its flexibility with various tokenizers. We compare several publicly available tokenizers in Table 2 .
+
+[Properties of Diffusion Loss]
+Diffusion Loss can be easily used even given a VQ tokenizer. We simply treat the continuous-valued latent before the VQ layer as the tokens. This variant gives us 7.82 FID (w/o CFG), compared favorably with 8.79 FID (Table 1 ) of cross-entropy loss using the same VQ tokenizer. This suggests the better capability of diffusion for modeling distributions.
+
+[Properties of Diffusion Loss]
+This variant also enables us to compare the VQ-16 and KL-16 tokenizers using the same loss. As shown in For comprehensiveness, we also train a KL-16 tokenizer on ImageNet using the code of [42] , noting that the original KL-16 in [42] was trained on OpenImages [28] . The comparison is in the last row of Table 2 . We use this tokenizer in the following explorations. Temperature τ has clear influence on both FID (left) and IS (right). Just like the temperature in discrete-valued autoregression, the temperature here also plays a critical role in continuous-valued autoregression.
+
+[Properties of Diffusion Loss]
+Denoising MLP in Diffusion Loss. We investigate the denoising MLP in Table 3 . Even a very small MLP (e.g., 2M) can lead to competitive results. As expected, increasing the MLP width helps improve the generation quality; we have explored increasing the depth and had similar observations. Note that our default MLP size (1024 width, 21M) adds only ∼5% extra parameters to the MAR-L model. During inference, the diffusion sampler has a decent cost of ∼10% overall running time. Increasing the MLP width has negligible extra cost in our implementation (Table 3 ), partially because the main overhead is not about computation but memory communication.
+
+[Properties of Diffusion Loss]
+Sampling Steps of Diffusion Loss. Our diffusion process follows the common practice of DDPM [24, 10] : we train with a 1000-step noise schedule but inference with fewer steps. Figure 4 shows that using 100 diffusion steps at inference is sufficient to achieve a strong generation quality.
+
+[Properties of Diffusion Loss]
+Temperature of Diffusion Loss. In the case of cross-entropy loss, the temperature is of central importance. Diffusion Loss also offers a temperature counterpart for controlling the diversity and fidelity. Figure 5 shows the influence of the temperature τ in the diffusion sampler (see Sec. 3.2) at inference time. The temperature τ plays an important role in our models, similar to the observations on cross-entropy-based counterparts (note that the cross-entropy results in Table 1 are with their optimal temperatures).
+
+[Properties of Generalized Autoregressive Models]
+From AR to MAR. Table 1 is also a comparison on the AR/MAR variants, which we discuss next. First, replacing the raster order in AR with random order has a significant gain, e.g., reducing FID from 19.23 to 13.07 (w/o CFG). Next, replacing the causal attention with the bidirectional counterpart leads to another massive gain, e.g., reducing FID from 13.07 to 3.43 (w/o CFG).
+
+[Properties of Generalized Autoregressive Models]
+The random-order, bidirectional AR is essentially a form of MAR that predicts one token at a time.
+
+[Properties of Generalized Autoregressive Models]
+Predicting multiple tokens ('>1') at each step can effectively reduce the number of autoregressive steps. In Table 1 , we show that the MAR variant with 64 steps slightly trades off generation quality.
+
+[Properties of Generalized Autoregressive Models]
+A more comprehensive trade-off comparison is discussed next.
+
+[Properties of Generalized Autoregressive Models]
+Speed/accuracy Trade-off. Following MaskGIT [4] , our MAR enjoys the flexibility of predicting multiple tokens at a time. This is controlled by the number of autoregressive steps at inference time. Figure 6 plots the speed/accuracy trade-off. MAR has a better trade-off than its AR counterpart, noting that AR is with the efficient kv-cache.
+
+[Properties of Generalized Autoregressive Models]
+With Diffusion Loss, MAR also shows a favorable trade-off in comparison with the recently popular Diffusion Transformer (DiT) [37] . As a latent diffusion model, DiT models the interdependence 6 : Speed/accuracy trade-off of the generation process. For MAR, a curve is obtained by different autoregressive steps (8 to 128). For DiT, a curve is obtained by different diffusion steps (50, 75, 150, 250) using its official code. We compare our implementation of AR and MAR. AR is with kv-cache for fast inference. AR/MAR model size is L and DiT model size is DiT-XL. The star marker denotes our default MAR setting used in other ablations. We benchmark FID and speed on ImageNet 256×256 using one A100 GPU with a batch size of 256. across all tokens by the diffusion process. The speed/accuracy trade-off of DiT is mainly controlled by its diffusion steps. Unlike our diffusion process on a small MLP, the diffusion process of DiT involves the entire Transformer architecture. Our method is more accurate and faster. Notably, our method can generate at a rate of < 0.3 second per image with a strong FID of < 2.0.
+
+[B Additional Implementation Details]
+Classifier-free guidance (CFG). To support CFG [23] , at training time, the class condition is replaced with a dummy class token for 10% of the samples [23] . At inference time, the model is run with the given class token and the dummy token, providing two outputs z c and z u . The predicted noise ε is then modified [23] as:
+
+[B Additional Implementation Details]
+ε = ε θ (x t |t, z u ) + ω • (ε θ (x t |t, z c ) -ε θ (x t |t, z u )),
+
+[B Additional Implementation Details]
+where ω is the guidance scale. At inference time, we use a CFG schedule following [5] . We sweep the optimal guidance scale and temperature combination for each model.
+
+[B Additional Implementation Details]
+Training. By default, the models are trained using the AdamW optimizer [31] for 400 epochs.
+
+[B Additional Implementation Details]
+The weight decay and momenta for AdamW are 0.02 and (0.9, 0.95). We use a batch size of 2048 and a learning rate (lr) of 8e-4. Our models with Diffusion Loss are trained with a 100-epoch linear lr warmup [16] , followed by a constant [37] lr schedule. The cross-entropy counterparts are trained with a cosine lr schedule, which works better for them. Following [37, 25] , we maintain the exponential moving average (EMA) of the model parameters with a momentum of 0.9999. Pseudo-code illustrating the concept of Diffusion Loss. Here the conditioning vector z is the output from the AR/MAR model. The gradient is backpropagated to z. For simplicity, here we omit the code for inference rescheduling, temperature and the loss term for variational lower bound [10] , which can be easily incorporated.
+
+[D.3 L2 Loss vs. Diff Loss]
+A naïve baseline for continuous-valued tokens is to compute the Mean Squared Error (MSE, i.e., L2) loss directly between the predictions and the target tokens. In the case of a raster-order AR model, using the L2 loss introduces no randomness and thus cannot generate diverse samples. In the case of the MAR models with the L2 loss, the only randomness is the sequence order; the prediction at a location is deterministic for any given order. In our experiment, we have trained an MAR model with the L2 loss, which as expected leads to a disastrous FID score (>100).
+
+[D.3 L2 Loss vs. Diff Loss]
+NeurIPS Paper Checklist Guidelines:
+
+[D.3 L2 Loss vs. Diff Loss]
+• The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate "Limitations" section in their paper.
+
+[D.3 L2 Loss vs. Diff Loss]
+• The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren't acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations.

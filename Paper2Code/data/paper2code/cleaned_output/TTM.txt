@@ -1,0 +1,32 @@
+[Abstract]
+As a technique to bridge logit matching and probability distribution matching, temperature scaling plays a pivotal role in knowledge distillation (KD). Conventionally, temperature scaling is applied to both teacher's logits and student's logits in KD. Motivated by some recent works, in this paper, we drop instead temperature scaling on the student side, and systematically study the resulting variant of KD, dubbed transformed teacher matching (TTM). By reinterpreting temperature scaling as a power transform of probability distribution, we show that in comparison with the original KD, TTM has an inherent Rényi entropy term in its objective function, which serves as an extra regularization term. Extensive experiment results demonstrate that thanks to this inherent regularization, TTM leads to trained students with better generalization than the original KD. To further enhance student's capability to match teacher's power transformed probability distribution, we introduce a sample-adaptive weighting coefficient into TTM, yielding a novel distillation approach dubbed weighted TTM (WTTM). It is shown, by comprehensive experiments, that although WTTM is simple, it is effective, improves upon TTM, and achieves state-of-the-art accuracy performance. Our source code is available at https://github.com/zkxufo/TTM.
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+In this section, we provide the pseudo-code for TTM and WTTM in a Pytorch-like style, shown in Algorithm 1. It's clear that both TTM and WTTM are quite easy to implement.
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+Algorithm 1 PyTorch-style pseudo-code for TTM and WTTM. 
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+γ = 0.1, β = 101 γ = 0.1, β = 76 γ = 0.3, β = 7 γ = 0.2, β = 8 γ = 0.1, β = 33 γ = 0.1, β = 100 γ = 0.1, β = 45 WTTM γ = 0.1, β = 4 γ = 0.1, β = 3 γ = 0.3, β = 1.5 γ = 0.2, β = 2 γ = 0.1, β = 1.5 γ = 0.1, β = 3 γ = 0.1, β = 2.25 WTTM+CRD γ = 0.1, β = 4 γ = 0.1, β = 2 γ = 0.3, β = 0.6 γ = 0.2, β = 1.4 γ = 0.2, β = 1 γ = 0.2, β = 4 γ = 0.2, β = 4 WTTM+ITRD γ = 0.3, β = 6 γ = 0
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+EQUATION
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+where µ is a balancing weight, and L dist is the additional distillation component, which can be CRD or ITRD in our experiments.
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+In the case where we combine WTTM with CRD, µ is always set to be 0.8, which is the optimal value used in the original paper.
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+In the case where we combine WTTM with ITRD, µ is always set to be 1. However, ITRD distillation loss itself is a combination of two components shown as follow
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+EQUATION
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+)
+
+[A.3 IMPLEMENTATION OF TTM AND WTTM]
+where β corr and β mi are two balancing weights within ITRD distillation loss. In our experiments, we always select the optimal β corr and β mi values specified in the original paper. Specifically, β corr = 2 and β mi = 0 for 3 teacher-student pairs, namely ResNet50 → MobileNetV2, ResNet50 → vgg8 and WRN-40-2 → ShuffleNetV1, while β corr = 2 and β mi = 1 for all the other 10 teacherstudent pairs. Note that there is another inherent hyperparameter α it within ITRD, which is selected as 1.01 for same-architecture distillation and 1.5 for different-architecture distillation, following the suggestion in the original paper.

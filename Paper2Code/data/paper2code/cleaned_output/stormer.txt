@@ -1,0 +1,92 @@
+[Abstract]
+Weather forecasting is a fundamental problem for anticipating and mitigating the impacts of climate change. Recently, data-driven approaches for weather forecasting based on deep learning have shown great promise, achieving accuracies that are competitive with operational systems. However, those methods often employ complex, customized architectures without sufficient ablation analysis, making it difficult to understand what truly contributes to their success. Here we introduce Stormer, a simple transformer model that achieves state-of-the-art performance on weather forecasting with minimal changes to the standard transformer backbone. We identify the key components of Stormer through careful empirical analyses, including weather-specific embedding, randomized dynamics forecast, and pressure-weighted loss. At the core of Stormer is a randomized forecasting objective that trains the model to forecast the weather dynamics over varying time intervals. During inference, this allows us to produce multiple forecasts for a target lead time and combine them to obtain better forecast accuracy. On WeatherBench 2, Stormer performs competitively at short to mediumrange forecasts and outperforms current methods beyond 7 days, while requiring orders-of-magnitude less training data and compute. Additionally, we demonstrate Stormer's favorable scaling properties, showing consistent improvements with increases in model size and training tokens. Code and checkpoints are available at https://github.com/tung-nd/stormer.
+
+[Methodology]
+We introduce Stormer, a skillful method for weather forecasting, and show that a simple architecture can achieve competitive forecast performances with a well-designed framework. We first present the overall training and inference procedure of Stormer, then describe the model architecture we use in practice. Section 4.2 empirically demonstrates the importance of each component of Stormer. Lead time (days) 
+
+[Training]
+We adopt the iterative approach for Stormer, and train the model to forecast the weather dynamics ∆ δt = X δt -X 0 , which is the difference between two consecutive weather conditions, X 0 and X δt , across the time interval δt. A common practice in previous works [22, 26] is to use a small fixed value of δt such as 6 hours. However, as we show in Figure 3a , while small intervals tend to work well for short lead times, larger intervals excel at longer lead times (beyond 7 days) due to less error accumulation. Therefore, having a model that can produce forecasts at different intervals and combine them in an effective manner has the potential to improve the performance of single-interval models. This motivates our randomized dynamics forecasting objective, which trains Stormer to forecast the dynamics at random intervals δt by conditioning on δt:
+
+[Training]
+EQUATION
+
+[Training]
+in which P (δt) is the distribution of the random interval. In our experiments, unless otherwise specified, P (δt) is a uniform distribution over three values δt ∼ U{6, 12, 24}. These three time intervals play an important role in atmospheric dynamics. The 6 and 12-hour values help to encourage the model to learn and resolve the diurnal cycle (day-night cycle), one of the most important oscillations in the atmosphere driving short-term dynamics (e.g., temperature over the course of a day). The 24-hour value filters the effects of the diurnal cycle and allows the model to learn longer, synoptic-scale dynamics which are particularly important for medium-range weather forecasting [19] .
+
+[Training]
+From a practical standpoint, this randomized objective provides two benefits. First, randomizing δt enlarges the training data, serving as data augmentation. Second, it allows a single trained model to generate various forecasts for a specified lead time T by creating different combinations of intervals δt that sum to T . For example, to forecast 7 days ahead, one could use 12-hour forecasts 14 times or 24-hour forecasts 7 times. Our experiments show that combining these forecasts is crucial for achieving good accuracy, especially for longer lead times. While both our approach and the continuous approach use the time interval as an additional input, we perform iterative forecasting instead of direct forecasting. This avoids the challenge of directly modeling chaotic weather and offers more flexibility for combining different intervals at test time.
+
+[Pressure-weighted loss]
+Due to the large number of variables being predicted, we use a physics-based weighting function to weigh variables near the surface higher. Since each variable lies on a specific pressure level, we can use pressure as a proxy for the density of the atmosphere at each level. This weighting allows the model to prioritize near-surface variables, which are important for weather forecasting and have the most societal impact. The final objective function that we use for training is:
+
+[Pressure-weighted loss]
+EQUATION
+
+[Pressure-weighted loss]
+)
+
+[Pressure-weighted loss]
+The expectation is over δt, X 0 , and X δt which we omit for notational simplicity. In this equation, w(v) is the weight of variable v, and L(i) is the latitude-weighting factor commonly used in previous works to account for the non-uniformity when we grid the spherical globe [40, 22, 35, 32, 3, 26] . The pressure-weighted loss was first introduced by GraphCast [26] , and we show that it also helps with a different architecture.
+
+[Inference]
+At test time, Stormer can produce forecasts at any time interval δt used during training. Thus the model can generate multiple forecasts for a target lead time T by creating different combinations of δt that sum to T . We consider two inference strategies for generating forecasts:
+
+[Inference]
+Homogeneous In this strategy, we only consider homogeneous combinations of δt, i.e., combinations with just one value of δt. For example, for T = 24 we consider [6, 6, 6, 6] , [12, 12] , and [24] .
+
+[Inference]
+Best m in n We generate n different, possibly heterogeneous combinations of δt, validate each combination, and pick m combinations with the lowest validation losses for testing.
+
+[Inference]
+The two strategies offer a trade-off between efficiency and expressivity. The homogeneous strategy only requires running three combinations for each lead time T , while best m in n provides greater expressivity. Upon determining these combinations and executing the model rollouts, we obtain the final forecast by averaging the individual predictions. This approach achieves a similar effect to ensembling in NWP, where multiple forecasts are generated by running NWP models with different perturbed versions of the initial condition [27] . As target lead times extend beyond 5-7 days and individual forecasts begin to diverge due to the chaotic nature of the atmosphere, averaging these forecasts is a Monte Carlo integration approach to handle this sensitivity to initial conditions and the uncertainty in the analyses used as initial conditions [31] . We note that our inference strategy is distinguished from that used in Pangu-Weather: while Pangu-Weather trains a separate model for each time interval δt, we train a single model for all δt values by conditioning on δt. Additionally, while Pangu-Weather relies on a single combination of intervals to minimize rollout steps, our method improves forecast accuracy by averaging multiple forecasts derived from diverse combinations.
+
+[Model architecture]
+We instantiate the framework in Section 3.1 with a simple Transformer [45] -based architecture. Due to the similarity of weather forecasting to various dense prediction tasks in computer vision, one might consider applying Vision Transformer (ViT) [10] for this task. However, weather data is distinct from natural images, primarily due to its significantly higher number of input channels, representing atmospheric variables with intricate physical relationships. For example, the wind fields are closely related to the gradient and shape of the geopotential field, and redistribute moisture and heat around the globe. Effectively modeling these interactions is critical to forecast accuracy.
+
+[Weather-specific embedding]
+The standard patch embedding module in ViT, which uses a linear layer for embedding all input channels within a patch into a vector, may not sufficiently capture the complex interactions among input atmospheric variables. Therefore, we adopt for our architecture a weather-specific embedding module, consisting of two components, variable tokenization and variable aggregation.
+
+[Weather-specific embedding]
+Variable tokenization Given an input of shape V × H × W , variable tokenization linearly embeds each variable independently to a sequence of shape (H/p) × (W/p) × D, in which p is the patch size and D is the hidden dimension. We then concatenate the output of all variables, resulting in a sequence of shape (H/p) × (W/p) × V × D.
+
+[Stormer Transformer block]
+Following weather-specific embedding, the tokens are processed by a stack of transformer blocks [45] .
+
+[Stormer Transformer block]
+In addition to the input X 0 , the block also needs to process the time interval δt. We do this by replacing the standard layer normalization module used in transformer blocks with adaptive layer normalization (adaLN) [37] . In adaLN, instead of learning the scale and shift parameters γ and β as independent parameters of the network, we regress them with an one-layer MLP from the embedding of δt. Compared to ClimaX [32] which only adds the lead time embedding to the tokens before the first attention layer, adaLN is applied to every transformer block, thus amplifying the conditioning signal.
+
+[Stormer Transformer block]
+Figure 3c shows the consistent improvement of adaLN over the additive lead time embedding used in ClimaX. Adaptive layer norm was widely used in both GANs [21, 4] and Diffusion [9, 36] to condition on additional inputs such as time steps or class labels. Figure 7 illustrates Stormer's architecture. We refer to [32] for illustrations of the weather-specific embedding block.
+
+[Comparison with State-of-the-art models]
+We compare the forecast performance of Stormer with Pangu-Weather [3] and GraphCast [26] , two leading deep learning methods for weather forecasting. Pangu-Weather employs a 3D Earth-Specific Transformer architecture trained on the same variables as Stormer, but with hourly data and a higher spatial resolution of 0.25 • . GraphCast is a graph neural network that was trained on 6-hourly ERA5 data at 0.25 • , using 37 pressure levels for the atmospheric variables, and two additional variables, Lead time (days) total precipitation and vertical wind speed. Both Pangu-Weather and GraphCast are iterative methods. GraphCast operates at 6-hour intervals, while Pangu-Weather uses four distinct models for 1-, 3-, 6-, and 24-hour intervals, and combines them to produce forecasts for specific lead times. We include Climatology as a simple baseline. We also compare Stormer with IFS HRES, the state-of-the-art numerical forecasting system, and IFS ENS (mean), which is the ensemble version of IFS. Since WB2 does not provide forecasts of these numerical models beyond 10 days, we defer the comparison against these models to Appendix C.1.
+
+[Comparison with State-of-the-art models]
+Results: Figure 4 evaluates different methods on forecasting nine key weather variables at lead times from 1 to 14 days. For short-range, 1-5 day forecasts, Stormer's accuracy is on par with or exceeds that of Pangu-Weather, but lags slightly behind GraphCast. At longer lead times, Stormer excels, consistently outperforming both Pangu-Weather and GraphCast from day 6 onwards by a large margin. Moreover, the performance gap increases as we increase the lead time. At 14 day forecasts, Stormer performs better than GraphCast by 10% -20% across all 9 key variables. Stormer is also the only model in this comparison that performs better than Climatology at long lead times, while other methods approach or even do worse than this simple baseline. The model's superior performance at long lead times is attributed to the use of randomized dynamics training, which improves forecast accuracy by averaging out multiple forecasts, especially when individual forecasts begin to diverge.
+
+[Comparison with State-of-the-art models]
+Moreover, we also note that Stormer achieves this performance with much less compute and training data compared to the two deep learning baselines. We train Stormer on 6-hourly data of 1.40625 • with 13 pressure levels, which is approximately 190× less data than Pangu-Weather's hourly data at 0.25 • and 90× less than that used for GraphCast, which also uses 6-hourly data but at a 0.25 • resolution with 37 pressure levels. The training of Stormer was completed in under 24 hours on 128 A100 GPUs. In contrast, Pangu-Weather took 60 days to train four models on 192 V100 GPUs, and GraphCast required 28 days on 32 TPUv4 devices. This training efficiency will facilitate future works that build upon our proposed framework.
+
+[B.2 Training and evaluation details B.2.1 Data normalization]
+Input normalization We compute the mean and standard deviation for each variable in the input across all spatial positions and all data points in the training set. This means each variable is associated with a scalar mean and scalar standard deviation. During training, we standardize each variable by subtracting it from the associated mean and dividing it by the standard deviation.
+
+[B.2 Training and evaluation details B.2.1 Data normalization]
+Output normalization Unlike the input, the output that the model learns to predict is the difference between two consecutive steps. Therefore, for each variable, we compute the mean and standard deviation of the difference between two consecutive steps in the training set. What it means to be "consecutive" depends on the time interval δt. If δt = 6, we collect all pairs in training data that are 6-hour apart, compute the difference between two data points in each pair, and then compute the mean and standard deviation of these differences. Since we train Stormer with randomized δt, we repeat the same process for each value of δt.
+
+[B.2.2 Three-phase training]
+As mentioned in Section 3, we train Stormer in three phases with the following objective:
+
+[B.2.2 Three-phase training]
+EQUATION
+
+[B.2.2 Three-phase training]
+where the number of rollout steps K is equal to 1, 4, and 8 in phase 1, 2, and 3, respectively. For phases 2 and 3, we finetune the best checkpoint from the preceding phase.
+
+[C.1 Complete comparison with SoTA models]
+Figure 8 compares Stormer with both deep learning and numerical methods. We take IFS and IFS ENS from WB2 which is only available until day 10. Similar to its deep learning counterparts, Stormer achieves lower RMSE compared to the IFS model for most variables, except for near-surface temperature (T2m) at initial lead times, and only performs slightly worse than IFS ENS. To the best of our knowledge, Stormer is the first model trained on 1.40625 • data to surpass IFS.
+
+[C.1 Complete comparison with SoTA models]
+Additionally, we compare Stormer and the baselines on latitude-weighted ACC, another common verification metric for weather forecast models. ACC represents the Pearson correlation coefficient between forecast anomalies relative to climatology and ground truth anomalies relative to climatology. ACC ranges from -1 to 1, where 1 indicates perfect correlation, and -1 indicates perfect anticorrelation. We refer to WB2 [41] for the formulation of ACC. Figure 9 shows that similarly to RMSE, Stormer achieves competitive performance from 1 to 5 days, and outperforms the baselines by a large margin beyond 6 days.
+
+[C.5 Comparison of different inference strategies]
+Our two inference strategies, Homogeneous and Best m in n, provide a tradeoff between efficiency and forecast accuracy. Figure 13 compares the performance of these two strategies across different variables at different lead times. The results show that Homogeneous performs competitively with Best m in n, while being much more efficient, requiring only 3 forward passes compared to n. Lead time (days) 

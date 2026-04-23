@@ -1,0 +1,47 @@
+[Abstract]
+We study the problem of training diffusion models to sample from a distribution with a given unnormalized density or energy function. We benchmark several diffusion-structured inference methods, including simulation-based variational approaches and off-policy methods (continuous generative flow networks). Our results shed light on the relative advantages of existing algorithms while bringing into question some claims from past work. We also propose a novel exploration strategy for off-policy methods, based on local search in the target space with the use of a replay buffer, and show that it improves the quality of samples on a variety of target distributions. Our code for the sampling methods and benchmarks studied is made public at (link) as a base for future work on diffusion models for amortized inference.
+
+[Credit assignment methods]
+Partial energies and subtrajectory-based learning. [86] studied the diffusion sampler learning problem introduced by [42] , but replaced the TB learning objective with the SubTB objective. 4 In addition, an inductive bias resembling the geometric interpolation in [47] was used for the state flow function:
+
+[Credit assignment methods]
+EQUATION
+
+[Credit assignment methods]
+where NN is a neural network and
+
+[Credit assignment methods]
+𝑝 ref 𝑡 (x 𝑡 ) = N (x 𝑡 ; 0, 𝜎 2 𝑡𝐼 𝑑 )
+
+[Credit assignment methods]
+is the marginal density of a Brownian motion with rate 𝜎 at x 𝑡 . The use of the target density log 𝑅(x 𝑡 ) = -E (x 𝑡 ) in the state flow function was hypothesized to provide an effective signal driving the sampler to high-density states at early steps in the trajectory. Such an inductive bias on the state flow was called forward-looking (FL) by [55] , and we will refer to this method as FL-SubTB in §5.
+
+[Credit assignment methods]
+Langevin dynamics inductive bias. [88] proposed an inductive bias on the architecture of the drift of the neural SDE 𝑢(x 𝑡 , 𝑡; 𝜃) (in GFlowNet terms, the mean of the Gaussian density 𝑝 𝐹 (x 𝑡+Δ𝑡 | x 𝑡 ; 𝜃)) that resembles a Langevin process on the target distribution. One writes
+
+[Credit assignment methods]
+EQUATION
+
+[Credit assignment methods]
+where NN 1 and NN 2 are neural networks outputting a vector and a scalar, respectively. The second term in ( 14) is a scaled gradient of the target energy -the drift of a Langevin SDE -and the first term is a learned correction. This inductive bias, which we name the Langevin parametrization (LP), was shown to improve the efficiency of PIS. We will study its effect on continuous GFlowNets in §5.
+
+[Credit assignment methods]
+The inductive bias ( 14) placed on policies represents a different way of incorporating the reward signal at intermediate steps in the trajectory and can steer the sampler towards low-energy regions. It contrasts with (13) in that it provides the gradient of the energy directly to the policy, rather than just using the energy to provide a learning signal to policies via the parametrization of the log-state flow (13) .
+
+[Credit assignment methods]
+Considerations of the continuous-time limit lead us to conjecture that the Langevin parametrization ( 14) with NN 1 independent of x 𝑡 is equivalent to the forward-looking flow (13) in the limit of small time increments Δ𝑡 → 0, i.e., they induce the same asymptotics of the discrepancy in the SubTB constraints (12) over short partial trajectories. Such theoretical analysis can be the subject of future work.
+
+[A new method for off-policy exploration with local search and replay buffer]
+Local search with parallel MALA. The FL and LP inductive biases both induce computational overhead: either in the evaluation and optimization of a state flow or in the need to evaluate the energy gradient at every step of sampling (see §C.3). We present an alternative technique that does not induce additional computation cost per training trajectory. LGCP (𝑑 = 1600) In detail, we initially sample 𝑀 candidates from the sampler: {x (1) , . . . , x ( 𝑀 ) } ∼ 𝑝 ⊤ 𝐹 (•). Subsequently, we run parallel MALA across 𝑀 chains over 𝐾 transitions , with the initial states of the Markov chain being {x (1) , . . . , x ( 𝑀 ) }. After the 𝐾 burn-in burn-in transitions, the accepted samples are stored in a local search buffer D LS . We occasionally update the buffer using MALA steps and replay samples from it to minimize the computational demands of iterative local search. MALA steps are far more parallelizable than sampler training and need to be made only rarely (as the buffer is much larger than the training batch size), so the overhead of local search is small.
+
+[A new method for off-policy exploration with local search and replay buffer]
+Algorithm ↓ Metric → Δ log 𝑍 Δ log 𝑍 RW Δ log 𝑍 Δ log 𝑍 RW Δ log 𝑍 Δ log
+
+[A new method for off-policy exploration with local search and replay buffer]
+Training with local search and replay buffer. To train samplers with the aid of the buffer, we draw a sample x from D LS (uniformly or using a prioritization scheme, §E), sample a trajectory 𝜏 leading to x from the backward process, and make a gradient update on the objective (e.g., TB) associated with 𝜏.
+
+[A new method for off-policy exploration with local search and replay buffer]
+When training with local search guidance, we alternate two steps, inspired by [43] , who alternate training on forward trajectories and backward trajectories initialized at a fixed set of MCMC samples.
+
+[A new method for off-policy exploration with local search and replay buffer]
+Step A involves training with on-policy or exploratory forward sampling while Step B uses samples drawn from the local search buffer described above. This allows the sampler to explore both diversified samples (Step A) and low-energy samples (Step B). See §E for detailed pseudocode of adaptive-step parallel MALA and local search-guided GFlowNet training.

@@ -1,0 +1,59 @@
+[Abstract]
+COMpression with Bayesian Implicit NEural Representations (COMBINER) is a recent data compression method that addresses a key inefficiency of previous Implicit Neural Representation (INR)-based approaches: it avoids quantization and enables direct optimization of the rate-distortion performance. However, COMBINER still has significant limitations: 1) it uses factorized priors and posterior approximations that lack flexibility; 2) it cannot effectively adapt to local deviations from global patterns in the data; and 3) its performance can be susceptible to modeling choices and the variational parameters' initializations. Our proposed method, Robust and Enhanced COMBINER (RECOMBINER), addresses these issues by 1) enriching the variational approximation while retaining a low computational cost via a linear reparameterization of the INR weights, 2) augmenting our INRs with learnable positional encodings that enable them to adapt to local details and 3) splitting high-resolution data into patches to increase robustness and utilizing expressive hierarchical priors to capture dependency across patches. We conduct extensive experiments across several data modalities, showcasing that RECOMBINER achieves competitive results with the best INR-based methods and even outperforms autoencoder-based codecs on lowresolution images at low bitrates. Our PyTorch implementation is available at https://github.com/cambridge-mlg/RECOMBINER/.
+˚equal contribution.
+This section reviews the essential parts of Guo et al. ( 2023)'s compression with Bayesian implicit neural representations (COMBINER), as it provides the basis for our method.
+Variational Bayesian Implicit Neural Representations: We assume the data we wish to compress can be represented as a continuous function f : R I Ñ R O from I-dimensional coordinates to Odimensional signal values. Then, our goal is to approximate f with a small neural network gp¨| wq
+
+[METHODS]
+In this section, we propose several extensions to Guo et al. (2023) 's framework that significantly improve its robustness and performance: 1) we introduce a linear reparemeterization for the INR's weights which yields a richer variational posterior family; 2) we augment the INR's input with learned positional encodings to capture local features in the data and to assist overfitting; 3) we scale our method to high-resolution image compression by dividing the images into patches and introducing an expressive hierarchical Bayesian model over the patch-INRs, and 4) we introduce minor modifications to the training procedure and adaptively select β to achieve the desired coding budget. Contributions 1) and 2) are depicted in Figure 1 , while 3) is shown in Figure 2 .
+
+[LINEAR REPARAMETERIZATION FOR THE NETWORK PARAMETERS]
+A significant limitation of the factorized Gaussian variational posterior used by COMBINER is that it posits dimension-wise independent weights. This assumption is known to be unrealistic (Izmailov et al., 2021) and to underfit the data (Dusenberry et al., 2020) , which goes directly against our goal of overfitting the data. On the other hand, using a full-covariance Gaussian posterior approximation would increase the INR's training and coding time significantly, even for small network architectures.
+
+[LINEAR REPARAMETERIZATION FOR THE NETWORK PARAMETERS]
+Hence, we propose a solution that lies in-between: at a high level, we learn a linearly-transformed factorized Gaussian approximation that closely matches the full-covariance Gaussian posterior on average over the training data. Formally, for each layer l " 1, . . . , L, we model the weights as w rls " h rls w A rls , where the A rls are square matrices, and we place a factorized Gaussian prior and variational posterior on h rls w instead. We learn each A rls during the training stage, after which we fix them and only infer factorized posteriors q h rls w when compressing new data. To simplify notation, we collect the A rls in a block-diagonal matrix A " diagpA r1s , . . . , A rLs q and the h rls w in a single row-vector h w " rh r1s w , . . . , h rLs w s, so that now the weights are given by w " h w A. We found this layer-wise weight reparameterization as efficient as using a joint one for the entire weight vector w. Hence, we use the layer-wise approach, as it is more parameter and compute-efficient.
+
+[LINEAR REPARAMETERIZATION FOR THE NETWORK PARAMETERS]
+This simple yet expressive variational approximation has a couple of advantages. First, it provides an expressive full-covariance prior and posterior while requiring much less training and coding time. Specifically, the KL divergence required by Equation ( 1) is still between factorized Gaussians and we do not need to optimize the full covariance matrices of the posteriors during coding. Second, this parameterization has scale redundancy: for any c P R we have h w A " p 1 {c ¨hw qpc ¨Aq. Hence, if we initialize h w suboptimally during training, A can still learn to compensate for it, making our method more robust. Finally, note that this reparameterization is specifically tailored for INR-based compression and would usually not be feasible in other BNN use-cases, since we learn A while inferring multiple variational posteriors simultaneously.
+
+[EXTENDED TRAINING PROCEDURE]
+In this section, we describe the ways in which RECOMBINER's training procedure deviates from COMBINER's. To begin, we collect the RECOMBINER's representations into one vector. For nonpatching cases we set h " rh w , h z s, and for the patch case using the three-level hierarchical model we set h " vecprH p0q , H p1q , H p2q sq. For simplicity, we denote the factorized Gaussian prior and variational posterior over h as p h " N pµ, diagpσqq and q h " N pν, diagpρqq, where µ and ν are the means and σ and ρ are the diagonals of covariances of the prior and the posterior, respectively. In this paper, we adopt an explicit approach and tune β dynamically based on our desired coding budget of C bits. More precisely, after every iteration, we calculate the average KL divergence of the training examples, i.e., δ "1 
+
+[EXTENDED TRAINING PROCEDURE]
+M ř M m"1 D KL rq h,m ||p h s. If δ ą C, we update β by β Ð β ˆp1 `τC q; if δ ă C ´ϵC , we update β by β Ð β{p1 `τC q.
+
+[EXTENDED TRAINING PROCEDURE]
+Here ϵ C is a threshold parameter to stabilize the training process and prevent overly frequent updates to β, and τ C is the adjustment step size. Unless otherwise stated, we set τ C " 0.5 in our experiments. Empirically, we find the value of β stabilizes after 30 to 50 iterations. We present the pseudocode of this prior learning algorithm in Algorithm 1. Then, our training step is a three-step coordinate descent process analogous to Guo et al. (2023) 's:
+
+[EXTENDED TRAINING PROCEDURE]
+1. Optimize variational parameters, linear transformation and upsampling network: Fix the prior p h , and optimize Equation ( 1) or its modified version from Section 3.3 via gradient descent. Note, that L is a function of the linear transform A and upsampling network parameters ϕ too:
+
+[EXTENDED TRAINING PROCEDURE]
+EQUATION
+
+[EXTENDED TRAINING PROCEDURE]
+2. Update prior: Update the prior parameters by the closed-form solution:
+
+[EXTENDED TRAINING PROCEDURE]
+EQUATION
+
+[EXTENDED TRAINING PROCEDURE]
+3. Update β: Set β Ð β ˆp1 `τC q or β Ð β{p1 `τC q based on the procedure described above.
+
+[EXTENDED TRAINING PROCEDURE]
+Note that unlike other INR-based methods (Dupont et al., 2022; Schwarz & Teh, 2022; Schwarz et al., 2023) our training procedure is remarkably stable, as we illustrate in Appendix D.4.
+
+[Experiments without Hierarchical Model:]
+We assume all patch-INRs are independent and simply assign independent mean-field Gaussian priors and posteriors over h pπq w for each patch. Experiments without Random Permutation across patches: Recall in RECOMBINER, for each level in the hierarchical model, we stack the representations together into a matrix, where each row is one representation. We then (a) apply the same permutation over all rows. This is the same as COMBINER and is to ensure KL is distributed uniformly across the entire representation for each patch. Then (b) for each column, we apply its own permutation to encourage KL to be distributed uniformly across patches. In the ablation study, we do not only apply the permutation in (b) but still perform the permutation in (a). encodings already present a pattern of the image. This is an indication of how the learnable positional encodings help with the fitting. When the target signal is intricate, and there is a strict bitrate constraint, the INR capacity is insufficient for learning the complex mapping from coordinates to signal values directly. On the other hand, when combined with positional encodings, INR simply needs to extract, combine, and enhance this information, instead of "creating" information from scratch. This aligns with the findings of the ablation study, which indicate that learnable positional encodings have a more significant impact on CIFAR-10 at low bitrates and the Kodak dataset, but a small effect on CIFAR-10 at high bitrates.
+
+[Experiments without Hierarchical Model:]
+Information contained in h w : To visualize the information contained in h w , we also take kodim03 at 0.488 bpp as an example. We reconstruct the image using h w for this image but mask out h Z by the prior mean. The image reconstructed in this way is shown in Fig 7b . From the figure, we can clearly see h w mostly captures the color specific to each patch, in comparison to the positional encodings containing information more about edges and shapes. Moreover, interestingly, we can see patches close to each other share similar patterns, indicating the redundancy between patches. This explains why employing the hierarchical model provides substantial gains, especially when applying it together with positional encodings.
+
+[Experiments without Hierarchical Model:]
+Linear Transform A: To interpret how the linear reparameterization works, we take the Kodak dataset as an example, and visualize A for the second layer (i.e., A r2s ) at 0.074 and 0.972 bpp in Fig 7c and 7d . Note that this layer has 32 hidden units and thus A r2s has a shape of 1056 ˆ1056. We only take a subset of 150 ˆ150 in order to have a clearer visualization. Recall w " h w A, and thus rows correspond to dimensions in h w and columns correspond to dimensions in w.
+
+[Experiments without Hierarchical Model:]
+It can be seen that when the bitrate is high, many rows in A are active, enabling a flexible model. Conversely, at lower bitrates, many rows become 0, effectively pruning out corresponding dimensions. This explains clearly how A contributes to improve the performance: first, A greatly promotes parameter sharing. For instance, at low bitrates, merely 10 percent of the parameters get involved in constructing the entire network. Second, the pruning in h w is more efficient than that in w directly. The predecessor of RECOMBINER, i.e., COMBINER, utilizes standard Bayesian neural networks. It controls its bitrates by pruning or activating the hidden units. When a unit is pruned, the entire column in the weight matrix will be pruned out (Trippe & Turner, 2017) . In other words, in COMBINER, the pruning in w is always conducted in chunks, which highly limits the flexibility of the network. On the contrary, in our approach, the linear reparameterization enables a direct pruning or activating of each dimension in h w individually, ensuring the flexibility of INR while effectively managing the rate.
+
+[Experiments without Hierarchical Model:]
+Another interesting observation is the matrix A essentially learns a low-rank pattern without manual tuning. This is in comparison with VC-INR (Schwarz et al., 2023) where the low-rank pattern is explicitly enforced by manually setting the LoRA-style (Hu et al., 2021) modulation.

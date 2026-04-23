@@ -1,0 +1,35 @@
+[Abstract]
+Whitening loss offers a theoretical guarantee against feature collapse in selfsupervised learning (SSL) with joint embedding architectures. Typically, it involves a hard whitening approach, transforming the embedding and applying loss to the whitened output. In this work, we introduce Spectral Transformation (ST), a framework to modulate the spectrum of embedding and to seek for functions beyond whitening that can avoid dimensional collapse. We show that whitening is a special instance of ST by definition, and our empirical investigations unveil other ST instances capable of preventing collapse. Additionally, we propose a novel ST instance named IterNorm with trace loss (INTL). Theoretical analysis confirms INTL's efficacy in preventing collapse and modulating the spectrum of embedding toward equal-eigenvalues during optimization. Our experiments on ImageNet classification and COCO object detection demonstrate INTL's potential in learning superior representations. The code is available at https://github.com/winci-ai/INTL.
+
+[ITERATIVE NORMALIZATION WITH TRACE LOSS]
+It is expected that IterNorm, as a kind of spectral transformation, can avoid collapse and obtain good performance in SSL, due to its benefits in approximating whitening for supervised learning (Huang et al., 2019) . However, we empirically observe that IterNorm suffers severe dimensional collapse and mostly fails to train the model in SSL (we postpone the details in Section 4.2.). Based on the analyses in Section 3.2 and 3.2.2, we propose a simple solution by adding an extra penalty named trace loss on the transformed output Z by IterNorm to ensure a well-conditioned spectrum. It is clear that the sum of eigenvalues of Σ Z is less than or equal to d, we thus propose a trace loss that encourages the trace of Σ Z to be its maximum d, when d ≤ m. In particular, we design a new method called IterNorm with trace loss (INTL) for optimizing the SSL model as 2 :
+
+[ITERATIVE NORMALIZATION WITH TRACE LOSS]
+EQUATION
+
+[ITERATIVE NORMALIZATION WITH TRACE LOSS]
+where Z = F θ (•) and Z = IterN orm(Z). Eqn. 6 can be viewed as an optimization problem over θ to encourage the trace of Z to be d.
+
+[C ALGORITHM OF INTL]
+The description of our paper is based on batch whitening (BW) (Ermolov et al., 2021; Hua et al., 2021) , and it can extend similarly for channel whitening (CW) (Weng et al., 2022) , where the covariance matrix of Z is calculated as Σ = 1 d Z T Z. We implement INTL based on CW, considering CW is more effective when the batch size m is relatively small. Given the centralized embedding of two positive pairs Z (v) , Z (v) ∈ R d×m and v ∈ {1, 2}, we use IterNorm to obtain the approximately whitened output
+
+[C ALGORITHM OF INTL]
+Z (v) = [ẑ (v) 1 , . . . , ẑ(v) m ].
+
+[C ALGORITHM OF INTL]
+The loss functions used in our method are
+
+[C ALGORITHM OF INTL]
+EQUATION
+
+[C ALGORITHM OF INTL]
+EQUATION
+
+[C ALGORITHM OF INTL]
+where L M SE indicates MSE of L 2 -normalized vectors which minimizes the distance between Z (1) and Z (2) . Here we simplify the expression of L trace in Eqn. 6, because off-diagonal elements of Σ Z does not need to be calculated. β is the trade-off between L M SE and INTL.
+
+[C ALGORITHM OF INTL]
+In our experiments, we observe that when the iteration number T of IterNorm is fixed, the coefficient β that obtains good performance has only relevant to the batch size. So we fix the iteration number T to 4 and empirically regress β with various batch sizes and obtain that β = 0.01 * (log 2 bs -3) where bs means the batch size and bs > 8. We keep the iteration number T of IterNorm and the coefficient β fixed in this form (i.e., β is determined given the batch size) across all the datasets and architectures, so our INTL can be directly applied to other datasets and models without tuning the coefficient.
+
+[C ALGORITHM OF INTL]
+For clarity, we also describe the algorithm of INTL in PyTorch-style pseudocode, shown in Figure 4 (a). In section 3.2 of the submitted paper, we conduct experiments on the 2D dataset and report the results on with varying p. Here, we provide the details of the experimental setup, and further show the results of IterNorm (Huang et al., 2019) for SSL in this 2D dataset.

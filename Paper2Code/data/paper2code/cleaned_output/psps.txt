@@ -1,0 +1,140 @@
+[Abstract]
+Machine learning (ML) is playing an increasingly important role in scientific research. In conjunction with classical statistical approaches, ML-assisted analytical strategies have shown great promise in accelerating research findings. This has also opened a whole field of methodological research focusing on integrative approaches that leverage both ML and statistics to tackle data science challenges. One type of study that has quickly gained popularity employs ML to predict unobserved outcomes in massive samples, and then uses predicted outcomes in downstream statistical inference. However, existing methods designed to ensure the validity of this type of post-prediction inference are limited to very basic tasks such as linear regression analysis. This is because any extension of these approaches to new, more sophisticated statistical tasks requires task-specific algebraic derivations and software implementations, which ignores the massive library of existing software tools already developed for the same scientific problem given observed data. This severely constrains the scope of application for post-prediction inference. To address this challenge, we introduce a novel statistical framework named PSPS for task-agnostic ML-assisted inference. It provides a post-prediction inference solution that can be easily plugged into almost any established data analysis routines. It delivers valid and efficient inference that is robust to arbitrary choice of ML model, allowing nearly all existing statistical frameworks to be incorporated into the analysis of ML-predicted data. Through extensive experiments, we showcase our method's validity, versatility, and superiority compared to existing approaches. Our software is available at https://github.com/qlu-lab/psps.
+Historically, the field of statistics has faced similar types of challenges. Before the advent of resampling-based methods [19] , it used to require task-specific derivation and implementation to obtain the variance of any new estimator. This old problem mirrors the current state of MLassisted inference, where every new task requires non-trivial effort from researchers. However, with resampling-based inference, the need to manually derive variance is reduced. Instead, resampling methods can be universally applied to many estimation problems and easily obtain variance [17] [18] [19] . Inspired by this, we seek a universal approach that incorporates ML-predicted data into any existing data analysis routines while ensuring valid inference results.
+We introduce a simple protocol named PoSt-Prediction Summary-statistics-based (PSPS) inference (Fig. 1 ). It employs existing analysis routines to generate summary statistics sufficient for ML-assisted inference, and then produces valid and powerful inference results using these statistics. It has several key features:
+• Assumption-lean and data-adaptive: It inherits the theoretical guarantees of validity and efficiency from state-of-the-art ML-assisted inference methods [4, 20, 35] . These guarantees hold with arbitrary ML predictions. • Task-agnostic and simple: Since our method only requires summary statistics from existing analysis routines, it can be easily adapted for many statistical tasks currently unavailable or difficult to implement in ML-assisted inference. • Federated data analysis: It does not need any individual-level data as input. Sharing of privacy-preserving summary statistics is sufficient for real-world scientific collaboration.
+2 Problem formulations
+We focus on statistical inference problems for the parameter θ * ≡ θ * (P) ∈ R K defined on the joint distribution of (X, Y ) ∼ P, where Y ∈ Y is a scalar outcome and X ∈ X be a K-dimensional vector representing features. We are interested in estimating θ * using labeled data
+, and a pre-trained ML model f (•) : X → Y. Here, f (•) is a black-box function with unknown operating characteristics and can be mis-specified. We also require an algorithm A that inputs the labeled data L and returns a consistent and asymptotically normally distributed estimator θ for θ * . There are three common ways in the literature to estimate θ * :
+
+[Pre-trained ML model]
+One-step debiasing
+
+[ML-assisted inference]
+Step1: Use pre-trained ML model to predict the gold-standard outcome in both labeled and unlabeled data
+
+[Pre-trained ML model]
+𝑿 𝓛
+
+[ML-assisted inference with predicted features]
+We have discussed ML-assisted inference with outcomes predicted by ML models. Here, we note that PSPS can also be applied when either features alone are predicted or both features and outcomes are predicted. The key idea is that the difference between point estimators obtained from applying A to predicted features in both labeled and unlabeled datasets is a consistent estimator for zero. This enables zero augmentation for estimators from observed features and outcomes. To implement this, modify step 2 in Algorithm 1 to apply A to predicted features in both labeled and unlabeled data. A similar approach is applicable when both features and outcomes are predicted.
+
+[C Algorithms for ML-assisted FDR control]
+Algorithm 2 PSPS-BH for linear regression 
+
+[C Algorithms for ML-assisted FDR control]
+Input: Labeled data L = (X L , Y L , f L ), unlabeled data U = (X U , f U ), FDR level q ∈ (0,
+
+[C Algorithms for ML-assisted FDR control]
+:= p (k) , where k = max k = 1, . . . , K : p (k) ≤ k K q Output: Discoveries S = k : p k ≤ τ BH q Algorithm 3 PSPS-knockoff with debiased Lasso Input: Labeled data L = (X L , Y L , f L ), unlabeled data U = (X U , f U ), FDR level q ∈ (0, 1).
+
+[C Algorithms for ML-assisted FDR control]
+1: Obtain the augmented labeled and unlabeled data as L = (X L , XL , Y L , f L ) and Ũ = (X U , XU , f U ) where XL ← knockoff-sample(X L ) and XU ← knockoff-sample(X U ). 2: Calculate the PSPS debiased Lasso coefficient β PSPS-DLasso ← PSPS-DLasso( L, Ũ)
+
+[C Algorithms for ML-assisted FDR control]
+3: W k for k = 1, • • • , K ← knockoff-statistic( β PSPS-DLasso ) 4: Set the cutoff τ knockoff q = t > 0 : #{k:W k ≤-t} #{k:W k ≥t}∨1 ≤ q Output: Discoveries S = k : M k > τ knockoff q
+
+[C Algorithms for ML-assisted FDR control]
+Here, we employ second-order multivariate Gaussian knockoff variables for knockoff-sample and use the difference between the absolute values of the k-th feature and its knockoff coefficient as the knockoff-statistic. Alternative choices for these two steps can also be readily integrated into our algorithm [26] .
+
+[D Implementation details D.1 Simulation]
+Here, we provide the details for our simulation. All our simulation is run in R with version 4.2.1 (2022-06-23) in a MacBook Air with an M1 chip. For all the simulations, the ground truth coefficients are obtained using 5 × 10 4 samples; A pre-trained random forest with 500 trees to grow is obtained from hold-out data. We bootstrap the labeled data for 200 times for covariance estimation. All simulations are repeated 1000 times.
+
+[D Implementation details D.1 Simulation]
+• Mean estimation, Linear regression, and Quantile regression: We simulate the data from
+
+[D Implementation details D.1 Simulation]
+Y i = X 1i β 1 + X 2i β 2 + X 2 1i β 2 + X 2 2i β 2 + ϵ i
+
+[D Implementation details D.1 Simulation]
+, where X i1 and X 2i are independent simulated from N (0, 1),
+
+[D Implementation details D.1 Simulation]
+β 1 = √ 0.08, β 2 is set to be the value such that X 2i β 2 + X 2 1i β 2 + X 2 2i
+
+[D Implementation details D.1 Simulation]
+β 2 explains 81% of the outcome variance, and ϵ i is simulated from a mean zero normal distribution with variance such that Var(Y i ) = 1. We use X 1i and X 2i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 1000, 2500, 5000, or 10000.
+
+[D Implementation details D.1 Simulation]
+• Logistic regression: We simulate the data from
+
+[D Implementation details D.1 Simulation]
+Y i = 1( Ỹi > median ( Ỹi )), where Ỹi = X 1i β 1 + X 2i β 2 + X 2 1i β 2 + X 2 2i β 2 + ϵ i
+
+[D Implementation details D.1 Simulation]
+, where X i1 and X 2i are independent simulated from N (0, 1), β 1 = √ 0.08, β 2 is set to be the value such that X 2i β 2 + X 2 1i β 2 + X 2 2i β 2 explains 81% of the outcome variance, and ϵ i is simulated from a mean zero normal distribution with variance such that Var( Ỹi ) = 1. We use X 1i and X 2i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 1000, 2500, 5000, or 10000.
+
+[D Implementation details D.1 Simulation]
+• Instrumental variable (IV) regression: We simulate the data by
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+We use X 1i and X 2i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 1000, 2500, 5000, or 10000.
+
+[D Implementation details D.1 Simulation]
+The Z i is used as a instrument for X 1i . • Negative binomial (NB) regression: We simulate the data by
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+Y i = NegativeBinomial (s = k, µ = µ i )
+
+[D Implementation details D.1 Simulation]
+, where s is the dispersion parameter and µ is the rate.
+
+[D Implementation details D.1 Simulation]
+We use X 1i and X 2i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 1000, 2500, 5000, or 10000.
+
+[D Implementation details D.1 Simulation]
+• Debiased Lasso: We simulate the data by
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+θ 1 , . . . , θ 15 = 0.9 √ 15 ; θ 16 , . . . , θ 200 = 0 (42)
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+We use X 1i , . . . , X 200i as features to predict the Y i in the random forest. We consider labeled data with 100 individuals, and unlabeled data with sample size 1500, 2000, 2500, or 3000.
+
+[D Implementation details D.1 Simulation]
+• Wilcoxon rank-sum test: We simulate the data by
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+where β 1 = √ 0.01 to power simulation and β 1 = 0 for type-I error simulation, β 2 is set to be the value such that β 2 X 2i + β 2 X 2 2i explains 81% of the outcome variance, and τ ϵ is set to be the value such that Var(Y i ) = 0.We use X 1i and X 2i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 1000, 2500, 5000, or 10000.
+
+[D Implementation details D.1 Simulation]
+• Benjamini-Hochberg (BH) procedure: We set K = 150 generate the features independently from N (0, Σ), where Σ is a symmetric Toeplitz matrix that has the structure:
+
+[D Implementation details D.1 Simulation]
+EQUATION
+
+[D Implementation details D.1 Simulation]
+The correlation r is set to be 0.25. We then simulate the outcome Y i = 150 k=1 X ki β k + ϵ i , where we randomly sample 15 β k to be 0.15 and let all other remaining β k to be 0. ϵ i is simulated from a mean-zero normal distribution with variance set to the value such that Var(Y i ) = 1. We further generate Z i = 0.9Y i + 150 k=1 X ki θ k + γ i , where θ k = 0.15 for all k = 1, . . . , 150. We use Z i as features to predict the Y i in the random forest. We consider labeled data with 500 individuals, and unlabeled data with sample size 5000.
+
+[D Implementation details D.1 Simulation]
+• knockoff: We used the same setting as described in the BH procedure above to generate the data. The only difference is that we set β k = 0.5 for features associated with the outcome and considered labeled data consisting of 100 individuals, along with unlabeled data comprising a sample size of 1000.

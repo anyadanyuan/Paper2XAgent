@@ -1,0 +1,59 @@
+[Abstract]
+The fluency and general applicability of large language models (LLMs) has motivated significant interest in detecting whether a piece of text was written by a language model. While both academic and commercial detectors have been deployed in some settings, particularly education, other research has highlighted the fragility of these systems. In this paper, we demonstrate a data-efficient attack that fine-tunes language models to confuse existing detectors, leveraging recent developments in reinforcement learning of language models. We use the 'human-ness' score (often just a log probability) of various open-source and commercial detectors as a reward function for reinforcement learning, subject to a KL-divergence constraint that the resulting model does not differ significantly from the original. For a 7B parameter Llama-2 model, fine-tuning for under a day reduces the AUROC of the OpenAI RoBERTa-Large detector from 0.84 to 0.63, while perplexity on OpenWebText increases from 8.7 to only 9.0; with a larger perplexity budget, we can drive AUROC to 0.30 (worse than random). Similar to traditional adversarial attacks, we find that this increase in 'detector evasion' generalizes to other detectors not used during training. In light of our empirical results, we advise against continued reliance on LLM-generated text detectors. Models, datasets, and selected experiment code will be released at https://github.com/charlottttee/llm-detector-evasion.
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+We leverage recent advantages in fine-tuning language models with reinforcement learning to directly optimize for detector confusion. First, we review key aspects of existing methods that we will leverage for detector evasion. Then we will outline our pipeline for optimizing against detectors.
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+Reinforcement Learning for Language Modelling. We consider a language model π θ that is conditioned on a prompt x and auto-regressively generates an output sequence y. Reinforcement learning has recently emerged as a powerful technique for aligning pre-trained language models to a particular objective, which is expressed through a reward function r(x, y) that assigns higher rewards to more desirable responses. In practice, the most commonly-used objective includes a KLdivergence penalty between the language model and its initialization, which in combination yield
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+EQUATION
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+where D p is some dataset of prompts, π ref is the reference model, usually the pre-trained language model before the RL fine-tuning phase, and β is a coefficient that controls the trade-off between reward and divergence (Ouyang et al., 2022; Bai et al., 2022; Stiennon et al., 2020) . The objective above seeks to align the model with the reward function, while not deviating too far from the pre-trained reference model. This KL-constraint is used in part because, without proper regularization, reward maximization alone often leads to 'reward hacking' (Skalse et al., 2022) or 'overoptimization' (Gao et al., 2022) ; our experiments verify that overoptimization can be an issue in our setting as well, justifying the KL-constrained formulation.
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+Several algorithms have been developed to optimize the objective, the most widely used one being PPO (Schulman et al., 2017) . However, these algorithms are quite complex, depending on a wide set of parameters and often being unstable to train (Zheng et al., 2023) .
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+Direct Preference Optimization (DPO). Rafailov et al. (2023) recently proposed the DPO algorithm with the goal of enabling simpler, stabler optimization of the above KL-constrained objective in the case where the reward function is learned from a dataset of preference pairs. Assume a dataset of preference pairs D = {x (i) , y
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+w , y
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+l } N i=1 including prompts x and two generations y w and y l . In this notation y w is preferred over y l (denoted y w ≻ y l ) and the probability is modeled as a Bradley-Terry model (Bradley & Terry, 1952) , written as p(y w ≻ y l ) = σ((r(x, y w ) -r(x, y l ))),
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+(
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+EQUATION
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+where σ is the standard logistic function for some reward function r(x, y). The Direct Preference Optimization algorithm (Rafailov et al., 2023) shows that the exact optimal policy π * for the problem in Eq. 1 can be directly optimized through the MLE objective
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+L DPO (π θ ; π ref ) = -E (x,yw,y l )∼D log σ β log π θ (y w | x) π ref (y w | x) -β log π θ (y l | x) π ref (y l | x) .
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+(3) This objective allows us to optimize π θ with a classification loss and very few hyper-parameter and design choices, resulting in stable training. We therefore adopt DPO as our optimization algorithm.
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+We note that we also attempted using detector scores directly as rewards in Eq. 1 and optimizing with general purpose reinforcement learning algorithms, but found performance to be much worse.
+
+[OPTIMIZING AGAINST LANGUAGE MODEL DETECTORS]
+Preference Data Generation and Optimization for Detector Evasion. Our goal is to understand how easy it is to fine-tune a pre-trained language to be undetectable by current machine-generated text detectors. In order to apply DPO to this detector-evasion setting, we construct a preference dataset using samples generated by Llama-2-7B. We generate a pair of samples y (i) , ȳ(i) for each prompt x (i) in the dataset, using temperature 1.0.1 Preference labels are generated by comparing the detector's 'human-ness' score s(x, y) for a pair of responses, and assigning the label y (i) ≻ ȳ(i) if s(x, y (i) ) > s(x, ȳ(i) ); otherwise we have ȳ(i) ≻ y (i) . Generating preferences through hard thresholding was previously adopted in (Gao et al., 2022) and we also found it to perform well in our experiments, so we keep this configuration for convenience. Once we have generated the preference dataset, we fine-tune Llama-2-7B using the DPO objective in Eq. 3.
+
+[Model Fluency Win Rate AUROC]
+Llama2-7b 50.0% 0.28 Llama2-13b 72.8% 0.26
+
+[Model Fluency Win Rate AUROC]
+Table 7 : Increasing the model size slightly improves ease of optimization against the RoBERTa-large Ope-nAI detector. Additionally, the fluency win rate against the fine-tuned 7-billion-parameter model improves drastically as the model is scaled up.
+
+[Model Fluency Win Rate AUROC]
+Additionally, we generated one passage from each of these models for 1000 prompts and asked GPT4 to select the more "fluently and coherently written" of the two. The 13-billion parameter won 72.8% of these matchups. These results suggest that increasing the size of the base model results in similar if not better performance evading the detector while the resulting model maintains superiority in quality of text generated.
+
+[PREVENTING ACCESS TO MODEL FINE-TUNING]
+In the settings in which detection is most widely employed (namely education and journalism), use of models with closed weights is common. A malicious actor wanting to implement our attack would be limited to models with accessible fine-tuning, which may in turn limit the quality of undetectable text such an actor could produce. Though note that fine-tuning ChatGPT recently became publicly available, so this countermeasure may be quite weak. Further, this "defense" is not within the control of the detector supplier but rather the model supplier, so this is a relatively weak framework for defense. 

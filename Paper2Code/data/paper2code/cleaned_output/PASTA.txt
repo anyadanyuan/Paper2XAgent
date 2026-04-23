@@ -1,0 +1,92 @@
+[Abstract]
+In human-written articles, we often leverage the subtleties of text style, such as bold and italics, to guide the attention of readers. These textual emphases are vital for the readers to grasp the conveyed information. When interacting with large language models (LLMs), we have a similar need -steering the model to pay closer attention to user-specified information, e.g., an instruction. Existing methods, however, are constrained to process plain text and do not support such a mechanism. This motivates us to introduce PASTA -Post-hoc Attention STeering Approach, a method that allows LLMs to read text with user-specified emphasis marks. To this end, PASTA identifies a small subset of attention heads and applies precise attention reweighting on them, directing the model attention to user-specified parts. Like prompting, PASTA is applied at inference time and does not require changing any model parameters. Experiments demonstrate that PASTA can substantially enhance an LLM's ability to follow user instructions or integrate new knowledge from user inputs, leading to a significant performance improvement on a variety of tasks, e.g., an average accuracy improvement of 22% for LLAMA-7B. Our code is publicly available at https://github.com/QingruZhang/PASTA. * Work is done during Qingru Zhang's internship at Microsoft Research. 1 We use prompts to refer to all LLM text inputs, including user instructions, and the other background information (which we refer to as context).
+
+[METHOD]
+PASTA (Algorithm 1) consists of two components: (i) post-hoc attention steering, which emphasizes the user-specified parts of the input during inference, see Section 3.1 and (ii) multi-task model profiling, which selects the effective attention heads for steering, see Section 3.2.
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+Multi-task model profiling (Section 3.2) 1: Input: small training sets {D (i) } m i=1 , the hyperparameters α, k; 2: for 1 ≤ i ≤ m do 3:
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+for 1 ≤ l ≤ L, 1 ≤ h ≤ H do 4:
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+Evaluate the model performance on D (i) when steering the head (l, h) by (2); 5:
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+Return the evaluation result of steering (l, h) on D (i) ; 6: end for 7:
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+Collect the steering results of all heads and return the task profiling R (i) ; 8: end for 9: Output: The attention head set
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+H = ∩ m i=1 R (i)
+
+[Algorithm 1 PASTA: Post-hoc Attention Steering Approach]
+1:k . Inference-time steering (Section 3.1) 1: Input: text inputs x, user-underlined segments G, coefficient α; 2: Output: the model generations while steering every head (l, h) in H by (2).
+
+[POST-HOC ATTENTION STEERING]
+PASTA emphasizes the user-specified input subset by downweighting the attention scores of tokens that are not specified by the user. Specifically, given the index set of highlighted input spans as G, PASTA emphasizes these user-specified tokens by an attention projection T :
+
+[POST-HOC ATTENTION STEERING]
+EQUATION
+
+[POST-HOC ATTENTION STEERING]
+)
+
+[POST-HOC ATTENTION STEERING]
+where 0 ≤ α < 1 is a scaling coefficient and G -= [n] -G is the index set of tokens that are not in G. The term C i = j∈G A ij + j∈G -αA ij normalizes the scores so that they sum to one. The attention steering (2) is conducted during the inference time and does not require any training.
+
+[POST-HOC ATTENTION STEERING]
+(2) steers the model attention by scaling down the scores of tokens that are not highlighted by the user.
+
+[POST-HOC ATTENTION STEERING]
+When the coefficient α is set very small, user-specified segments are highlighted given their increased attention scores after renormalization. Consequently, we can direct the model to concentrate more on the user-specified tokens, biasing the generation to align with the specified contents.
+
+[POST-HOC ATTENTION STEERING]
+PASTA scales down the attention scores of non-specified tokens by α. As renormalization is followed, it is equivalent to scaling up the attention scores of user-specified tokens by 1/α. The reason of selecting ( 2) is that it can be more numerically stable compared to scaling up scores. Alternatively, one can also scale the attention scores by adding a positive constant to the underlined tokens G.
+
+[POST-HOC ATTENTION STEERING]
+The reason of we select multiplication in (2) instead of addition is that it preserves the difference on attention magnitude among the highlighted tokens. As such, the steering operation only adjusts overall attention scales of two groups of tokens. In contrast, addition by a large constant to the highlighted tokens results in their attention scores almost uniformly distributed, leading to unnecessary information loss and performance degeneration.
+
+[MULTI-TASK MODEL PROFILING]
+Empirically, we find that applying attention steering in (2) to all attention heads performs worse than applying it only to specific heads (see Section 5.3). It is important to specify the correct attention heads, given that different heads serve distinctive roles in encoding semantic/syntactic information.
+
+[MULTI-TASK MODEL PROFILING]
+To this end, we propose a multi-task model profiling algorithm to identify the effective attention heads for steering. Specifically, given m tasks involving user emphases, we subsample a small training set D (i) (e.g., |D (i) | = 1000) from each task i. Then, we evaluate the performance of steering every individual attention head (l, h)
+
+[MULTI-TASK MODEL PROFILING]
+(1 ≤ l ≤ L, 1 ≤ h ≤ H) on each small subset D (i) (1 ≤ i ≤ m).
+
+[MULTI-TASK MODEL PROFILING]
+For every task i, we rank all of heads according to their steering performance on D (i) and regard the ranking R (i) = [(l 1 , h 1 ), (l 2 , h 2 ), . . . ] as the profiling of task i. We then set the attention head set H for steering as the intersection of top-k performing heads, H = ∩ m i=1 R (i)
+
+[MULTI-TASK MODEL PROFILING]
+1:k (see Section 5.3 for alternative choices). Intuitively, we expect performance to improve as the number of tasks m increases.
+
+[MULTI-TASK MODEL PROFILING]
+Like attention steering, model profiling requires only access to attention scores, in addition to its inputs and outputs (model weights and gradients are not required). Importantly, this process needs to be performed only once for a LLM, similar to finetuning. However, unlike finetuning, model steering does not modify model weights and, more importantly, generalizes to new tasks. The resulting head set H can be regarded as a model-level profile. Once it is determined, we can apply the attention steering on H to both existing tasks and unseen tasks to enhance model contextual understanding and benefit downstream performance.
+
+[MAIN RESULT: PASTA IMPROVES MODEL GENERATION]
+Tables 1 and 2 present the main results for PASTA applied to LLAMA-7B and GPT-J respectively. Few-shot prompting is the strongest baseline, and task-agnostic PASTA outperforms it on the main metric for each task for all settings except JSON Formatting with GPT-J. Multi-task PASTA outperforms all baselines across all settings.
+
+[MAIN RESULT: PASTA IMPROVES MODEL GENERATION]
+PASTA can improve LLM instruction following. The results from JSON Formatting and Pronouns Changing tasks indicate that, by highlighting the user instruction at the end of inputs, PASTA effectively steers models to focus on user intentions, thereby biasing their generation to fulfill specific requirements or formats. For example, while GPT-J only achieves 39.9% of its zero-shot generations complying the user requirement on the Pronouns Changing task, PASTA yields a remarkable 53% accuracy improvement by emphasizing the instruction. Moreover, PASTA achieves an impressive 96.64% format accuracy and 85.09% prediction accuracy when applied to LLAMA-7B on the JSON Formatting task. This performance exceeds that of few-shot prompting by 11%, even though few-shot prompting explicitly provides the model with correct JSON examples through additional demonstrations. Table 3 presents a few examples generated by LLAMA-7B when applying PASTA.
+
+[MAIN RESULT: PASTA IMPROVES MODEL GENERATION]
+PASTA can help models capture crucial contextual information. In the case of BiasBios and CounterFact tasks, we apply PASTA to emphasize specific context spans for LLMs. Consequently, the models are guided to pay close attention to the specific contextual information or new facts within contexts. The results from these two tasks illustrate that PASTA can direct the models to interpret the crucial information or resolve the knowledge conflicts within contexts, yielding significant improvement in prediction performance of both tasks. For example, PASTA achieves a prediction accuracy of 94.96% for GPT-J on the BiasBios task, which is 16.32% higher than the best baseline.
+
+[MAIN RESULT: PASTA IMPROVES MODEL GENERATION]
+Tables 1 and 2 also suggest that marked prompting, a baseline that highlights specific texts akin to human writers, struggles to effectively convey emphasis to LLMs. One possible reason is that these emphasis markers rarely appear in the massive pre-training data. In contrast, few-shot prompting sometimes leads to improvements in model performance. However, a drawback of few-shot prompting is its instability, i.e. its performance exhibits high variance across different samples in the demonstration (See Appendix B). It is well-known that the the performance of LLMs can be sensitive to minor changes in prompts, such as rephrasing and reformatting, even when these prompts convey the same meaning (Reynolds & McDonell, 2021; Liu et al., 2021) . We find that PASTA can alleviate the sensitivity of model performance to varying prompts. Specifically, Table 4 evaluates the performance of LLAMA-7B and GPT-J on JSON Formatting and Pronouns Changing task given different instructions in the prompt template, all of which convey the same meaning (see precise prompts in Appendix A.1). The results show that zero-shot performance is sensitive to different prompts and can significantly deteriorate with poorly crafted templates. In contrast, PASTA consistently improves model performance over zero-shot prompting for all prompts, effectively mitigating sensitivity to variations in the prompts.
+
+[Model profiling]
+Varying strategies for selecting heads during profiling. As described in Sec. 5.3, our model profiling selects the Intersection of the top-k performing heads to steer across multiple tasks. Alternatively, when evaluating on task j, we can select heads for steering with different strategies: (i) Task-specificsteer the top-k 2 performing heads of only the task j, i.e., R (j) 1:k2 ; or (ii) Union -the union of these heads across multiple tasks, i.e., ∪ m i=1 R
+
+[Model profiling]
+(i)
+
+[Model profiling]
+1:k2 . Table 5 compares their performance. Using task-specific heads rather than intersection-selected heads sometimes yields improved performance, but requires selecting a different set of heads for each new task. Varying the number of heads to be steered. Figures 3a and 3b illustrate the performance of PASTA when steering different number of heads on two tasks. The results suggest that as more heads are included for steering, the model follows the user even more closely, achieving higher efficacy (JSON Format Acc. and Pron. Change Acc.). However, at some point, this it results in a decrease in the metrics reflecting the generation quality (JSON Pred. Acc and Fluency). Thus, there is a trade-off between emphasizing efficacy and generation quality. Overemphasizing can lead the model to focus solely on satisfying the user requirements and ignore the other parts. Therefore, we recommend applying PASTA to a moderate number of heads (typically 50 to 150), striking a balance between the efficacy and generation quality.
+
+[Model profiling]
+Varying the scaling coefficient α. hyperparameter; in practice, we fix it as 0.01. Notice that setting α to zero should be avoided, as this leads to the complete removal of other crucial contexts at the steered heads, resulting in performance degeneration.

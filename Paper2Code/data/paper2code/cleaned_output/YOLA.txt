@@ -1,0 +1,59 @@
+[Abstract]
+In this paper, we introduce YOLA, a novel framework for object detection in low-light scenarios. Unlike previous works, we propose to tackle this challenging problem from the perspective of feature learning. Specifically, we propose to learn illumination-invariant features through the Lambertian image formation model. We observe that, under the Lambertian assumption, it is feasible to approximate illumination-invariant feature maps by exploiting the interrelationships between neighboring color channels and spatially adjacent pixels. By incorporating additional constraints, these relationships can be characterized in the form of convolutional kernels, which can be trained in a detection-driven manner within a network. Towards this end, we introduce a novel module dedicated to the extraction of illumination-invariant features from low-light images, which can be easily integrated into existing object detection frameworks. Our empirical findings reveal significant improvements in low-light object detection tasks, as well as promising results in both well-lit and over-lit scenarios. Code is available at https://github.com/MingboHong/YOLA.
+
+[Method]
+In this section, we formally introduce YOLA, a novel method for low-light object detection. As illustrated in Fig. 2 , the key component of YOLA is the Illumination Invariant Module (IIM) focusing on feature learning to derive downstream task-specific illumination-invariant features. These features can be integrated with existing detection modules, enhancing their capability in low-light conditions. Next, we will introduce the derivation of illumination-invariant features and provide a detailed description of IIM's specific implementation.
+
+[Illumination invariant module]
+While Eq. 4 offers a straightforward and effective method for calculating Illumination Invariant features, its rigidity presents certain limitations. Specifically, the fixed nature of this equation may not adequately capture the diverse and complex variations in illumination that are specific to downstream tasks across different scenarios. To address this, we have evolved the equation into a more adaptable form using convolutional operations. Instead of relying on a single kernel, our approach involves learning a set of convolutional kernels. This strategy not only enhances the robustness of the Illumination Invariant feature extraction but also improves its efficiency. To this end, we propose Illumination Invariant Module comprising two main components, including learnable kernels and a zero-mean constraint. Note that Illumination Invariant Module yield features are inherently illumination invariant at initialization. Subsequent kernel learning is geared towards producing task-specific illumination invariant features for downstream tasks.
+
+[Illumination invariant module]
+Learnable kernel. The goal is to transform the fixed illumination-invariant feature into a learnable form. Specifically, we aim to learn a set of convolutional kernels
+
+[Illumination invariant module]
+W 1 , W 2 , • • • W ∈k×k n
+
+[Illumination invariant module]
+, where n represents the number of kernels and k denotes the kernel size. Here, we extend the fixed feature into a more versatile and generalized form. Let p i and w i represent a group pixel position and its corresponding weight within a kernel W n , where i = 0, 1, • • • k 2 . These parameters enable us to evolve the Cross Color Ratio (CCR) into an adaptable form, enhancing its capability to effectively handle varying illumination conditions. Note that w i is trainable, rendering the positive or negative polarity inconsequential.
+
+[Illumination invariant module]
+M rb = k 2 -1 i=1 R pi B pi wi B pi+1 R pi+1 wi+1 = k 2 i=1 R pi B pi wi (5)
+
+[Illumination invariant module]
+To make the extended form still satisfy Illumination Invariant, the logarithm of M rb should satisfy the following constraints: If the above equation holds true, the e term and the m term are eliminated. The final feature can be expressed in a generalized form:
+
+[Illumination invariant module]
+k 2 i w i log(e Rp i (λ)) = 0 k 2 i w i log(e Bp i (λ)) = 0 (6)
+
+[Illumination invariant module]
+EQUATION
+
+[Illumination invariant module]
+Similarly, we can obtain log(M rg ) and log(M gb ) to form f Wi (I).
+
+[Illumination invariant module]
+The resulting features obtained by applying the kernel W i to the image I denoted as f Wi (I), can be expressed as:
+
+[Illumination invariant module]
+EQUATION
+
+[Illumination invariant module]
+where ⊛ denotes the convolution.
+
+[Illumination invariant module]
+Zero mean constraint: Drawing from Eq. 6 and the approximation e Rp 1i ≈ e Bp i , in the context of convolutional kernels, we simply ensure that the mean of W ∈k×k n to be 0, as depicted by:
+
+[Illumination invariant module]
+EQUATION
+
+[Illumination invariant module]
+This constraint is enforced by substituting the mean value from the kernel 4 Experiments
+
+[Illumination invariant module]
+W n = W n -W n .
+
+[Implementation details]
+We evaluate the proposed method using the popular anchor-based detector YOLOv3 [39] and the anchor-free detector TOOD [12] . Both detectors are initially pre-trained on the COCO dataset and subsequently fine-tuned on the target datasets utilizing the SGD [41] optimizer with an initial learning rate of 1e-3. Specifically, we resize the ExDark dataset images to 608 × 608 and train both detectors for 24 epochs, reducing the learning rate by a factor of 10 at epochs 18 and 23. For the U G 2 +DARK FACE dataset, we resize images to 1500 × 1000 for TOOD and maintain the 608 × 608 resolution for YOLOv3 to be consistent with MAET. YOLOv3 is trained for 20 epochs, with the learning rate decreased by a factor of 10 at 14 and 18 epochs. TOOD are trained for 12 epochs, with the learning rate decreased by a factor of 10 at 8 and 11 epochs. Additionally, we implement a straightforward illumination-invariant model, denoted as YOLA-Naive, by removing the IIM and ensuring various illumination features are consistently imposed by an MSE loss. We implement YOLA using the MMDetection toolbox [4] .
+
+[Illumination invariant module]
+We evaluate the effectiveness of the IIM in detectors TOOD, as presented in Table 3 , respectively. The 1st and 5th rows of Table 3 show the baseline detectors evaluated on ExDark and U G 2 +DARK FACE dataset. By incorporating the IIM to introduce illumination-invariant features, the detector yields considerable performance gains (2.3 and 4.8 mAP for ExDark and U G 2 +DARK FACE, respectively).

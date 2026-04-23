@@ -1,0 +1,71 @@
+[Abstract]
+Recent insights have revealed that rate-coding is a primary form of information representation captured by surrogate-gradient-based Backpropagation Through Time (BPTT) in training deep Spiking Neural Networks (SNNs). Motivated by these findings, we propose rate-based backpropagation, a training strategy specifically designed to exploit rate-based representations to reduce the complexity of BPTT. Our method minimizes reliance on detailed temporal derivatives by focusing on averaged dynamics, streamlining the computational graph to reduce memory and computational demands of SNNs training. We substantiate the rationality of the gradient approximation between BPTT and the proposed method through both theoretical analysis and empirical observations. Comprehensive experiments on CIFAR-10, CIFAR-100, ImageNet, and CIFAR10-DVS validate that our method achieves comparable performance to BPTT counterparts, and surpasses state-of-the-art efficient training techniques. By leveraging the inherent benefits of rate-coding, this work sets the stage for more scalable and efficient SNNs training within resource-constrained environments. Our code is available at https://github.com/Tab-ct/rate-based-backpropagation.
+
+[Spiking Neural Networks]
+Inspired by the brain's ability to transmit information through discrete spikes, the Leaky Integrateand-Fire (LIF) model serves as the basic building block of SNNs due to its simplicity. For practical implementation of SNNs based on connected spiking neurons, the dynamics of the LIF model are typically rendered in a discrete iterative format:
+
+[Spiking Neural Networks]
+EQUATION
+
+[Spiking Neural Networks]
+where u l t and s l t represent the membrane potential and output spike of neurons in layer l at time t, respectively. W l denotes the linear synaptic connections between layers l -1 and l, and λ acts as the decay term for the membrane potential. The Heaviside step function, H(•), determines spike generation, ensuring s l t in binary forms. Noting that H(•) is not differentiable, SNNs' direct training employs surrogate gradients to achieve error propagation by creating various pseudo-derivatives [51, 74, 19] , following the basic idea of Straight-Through Estimator (STE) [3] .
+
+[Training SNNs with BPTT]
+The network outputs at each timestep t are given by o t = W L s L t , where W L denotes the classifier's weights. Classification is based on the average of these outputs across all timesteps, computed as y pred = 1 T T t=1 o t . The loss function L is defined over averaged outputs and is typically formulated as L = ℓ 1 T T t=1 o t , y , where y represents the true labels and ℓ could be the cross-entropy function, as noted in various studies [87, 48, 19, 69] . BPTT unfolds the iterations described in Eq. ( 1), and propagates gradients back along the computational graphs across both temporal and spatial dimensions, as illustrated in Fig. 1a . The gradients of the membrane potential u incorporate elements Incorporating rate-based representation. Under the rate coding assumption, essential information is effectively encapsulated within the spike frequency averages. We start by defining the rate-based representation as an approximation for the forward procedure in SNNs, as shown in Figure 2 . The average firing rate at each layer l, denoted as r l , is calculated as the expected value of the spike outputs s l t over the temporal dimension
+
+[Training SNNs with BPTT]
+r l = E[s l t ] = 1 T t≤T s l t .
+
+[Training SNNs with BPTT]
+Considering the forward propagation through linear operators with weights W l that compute the inputs as I l t = W l s l-1 t , instead of transmitting distinct spikes over multiple timesteps, we transform the average rates into average inputs c l in the approximate representation:
+
+[Training SNNs with BPTT]
+c l = E[I l t ] = E[W l s l-1 t ] = W l E[s l-1 t ] = W l r l-1 .
+
+[Training SNNs with BPTT]
+Supposing input representations are well captured within c l , we approximate the exact inputs with the average inputs for all timesteps, I l t ≈ c l , and follow the neuronal dynamics in Eq. ( 1) to derive the output rates r l = E[s l t ]. With the rate-coding approximation in place, we can derive the gradients with respect to the weights in the linear part based on the error propagated through the average inputs:
+
+[Training SNNs with BPTT]
+EQUATION
+
+[Training SNNs with BPTT]
+Handling temporal dependency during backward. For back-propagating the error, the linear parts operate smoothly as ∂c l ∂r l-1 = W l ⊤ . The next step is to define the correlation between the averages of inputs and output spike rates, ∂r l ∂c l , within the neurons of layer l. Since there is no deterministic relationship between r l and c l , we first look into the influence of separated inputs following the exact gradients in Eq. ( 2):
+
+[Training SNNs with BPTT]
+EQUATION
+
+[Training SNNs with BPTT]
+By accumulating the intricate dynamics over time, we can derive the gradients of the overall spikes with respect to the inputs at time t:
+
+[Training SNNs with BPTT]
+EQUATION
+
+[Training SNNs with BPTT]
+Here, with rate-coding approximating I l t ≈ c l , we follow the idea of Straight-Through Estimator [3] and define the backward gradients as ∂I l t ∂c l = Id, with Id representing the identity matrix. Then, we can derive the surrogate gradients of neural dynamics through the mean estimator:
+
+[Training SNNs with BPTT]
+∂r l ∂c l rate ≡ τ ∂(E s l t ) ∂I l τ ∂I l τ ∂c l = 1 T t τ ∂s l t ∂I l τ = E κ κ κ l t (6)
+
+[Training SNNs with BPTT]
+With the compressed gradients of neuron parts, the error backpropagation of the rate-based representation is then determined, dependent only on the spatial domain:
+
+[Training SNNs with BPTT]
+EQUATION
+
+[Training SNNs with BPTT]
+where we define the objective
+
+[Training SNNs with BPTT]
+L = 1 T ℓ(E[o t ], y) = 1 T ℓ(c L , y).
+
+[Training SNNs with BPTT]
+Note that the rate-based representation, while instrumental in constructing the backward computational graph for learning, does not necessitate actual implementation during the forward pass.
+
+[C.2 Training Setup]
+Network Architectures. For the CIFAR-10, CIFAR-100, and CIFAR10-DVS datasets, our method is tested on standard network architectures, including ResNet-18, ResNet-19, and VGG-11 [63, 32, 87, 76, 19, 69] . On the ImageNet dataset, we adapt two variations on ResNet architecture [32] , SEW-ResNet-34 [87] specially proposed for SNNs, and ResNet-34 with pre-activation residual blocks [33] , aligning with previous works [76, 48, 89] . While OTTT [76] and SLTT [48] frameworks utilize normalization-free techniques under the ResNet-34 framework [5] , Zhu et al. [89] substitute these with their custom-designed batch normalization. We directly employ tdBN [87] instead of normalization-free methods in our experiments.
+
+[C.2 Training Setup]
+Training Details. This work utilizes the widely adopted sigmoid-based surrogate gradient [19] to approximate the Heaviside step function using h(x, α) = 1 1+e αx and sets α = 4 to ensure the maximum derivative of the surrogate function is 1 for preventing gradient explosion. All implementations are based on the PyTorch [53] and SpikingJelly [19] frameworks. The experiments on CIFAR-10, CIFAR-100, and CIFAR10-DVS datasets run on one NVIDIA GeForce RTX 3090 GPU. For ImageNet, distributed data parallel processing is utilized across eight NVIDIA GeForce RTX 4090 GPUs. We use the SGD optimizer [58] with a momentum of 0.9 for all tasks, integrating a cosine annealing strategy [45] for the learning rate schedule. Other hyperparameters are listed in Table 3 . 
+
+[D.3 Comprehensive Evaluation of Training Costs]
+To enhance the understanding of the scalability of the proposed method, we extended our analysis to include training costs across the CIFAR-100 and ImageNet datasets, utilizing additional network architectures as detailed in Table 6 . This comprehensive evaluation aimed to assess the impact of varying time steps on performance, memory, and time costs. We integrated the computation of eligibility traces during the forward process, ensuring a fair comparison by incorporating these iterative computations into the overall cost assessment. The results reveal that the total cost of rate-based backpropagation demonstrates a clear advantage over BPTT when timesteps T ≥ 2, which underscores the efficiency of the proposed method approach in managing computational resources while maintaining comparative performance across various datasets and network architectures.

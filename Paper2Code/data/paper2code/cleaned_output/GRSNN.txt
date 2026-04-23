@@ -1,0 +1,167 @@
+[Abstract]
+Spiking neural networks (SNNs) are investigated as biologically inspired models of neural computation, distinguished by their computational capability and energy efficiency due to precise spiking times and sparse spikes with event-driven computation. A significant question is how SNNs can emulate human-like graph-based reasoning of concepts and relations, especially leveraging the temporal domain optimally. This paper reveals that SNNs, when amalgamated with synaptic delay and temporal coding, are proficient in executing (knowledge) graph reasoning. It is elucidated that spiking time can function as an additional dimension to encode relation properties via a neuralgeneralized path formulation. Empirical results highlight the efficacy of temporal delay in relation processing and showcase exemplary performance in diverse graph reasoning tasks. The spiking model is theoretically estimated to achieve 20× energy savings compared to non-spiking counterparts, deepening insights into the capabilities and potential of biologically inspired SNNs for efficient reasoning. The code is available at https://github.com/pkuxmq/GRSNN.
+
+[Synaptic Delay for Traditional Graph Algorithms]
+Some previous works show that the synaptic delay of SNNs can be leveraged to solve traditional graph tasks, providing a parallelizable and efficient neuromorphic computing solution to graph algorithms (Aimone et al., 2021) . For the traditional graph single-source shortest path problem, by assigning a neuron to each graph node and configuring the delay between neurons as the graph edge weight, SNNs can parallelly simulate Dijkstra's algorithm. An example is shown in Fig. 2e if we decode the spike train of the target neuron by the time to first spike. We will generalize the thought-delays in SNNs can represent the properties of graph edges-to graph AI reasoning tasks with neural generalization and advanced temporal coding with multiple temporal spikes for diverse paths.
+
+[Graph Reasoning Spiking Neural Network]
+In this section, we introduce our graph reasoning spiking neural networks. We first introduce the overview of our model in Section 3.1. Then in Section 3.2, we demonstrate that GRSNN can be viewed as a generalized path formulation for graph reasoning. In Section 3.3, we discuss the comparison with graph neural networks. Finally, we introduce implementation details in Section 3.4.
+
+[Model Overview]
+The outline of GRSNN is depicted in Fig. 2 . Each graph node is assigned n spiking neurons, representing each entity by a neuron population (Fig. 2b ). Synaptic connections, corresponding to relation links between entities, are characterized by weight and delay between neuron groups (Fig. 2c ). These synaptic properties, such as delay, are dependent on the graph edge relation and modulated by the query relation (task goal), allowing the integrated properties of paths to be reflected by the spiking time considering delays (Fig. 2e ). Depiction of the temporal domain serving as an additional dimension to process the properties of edges and paths in a network with more propagation paths. In the demonstrated network under a simplified setting where each input spike triggers an output spike for neurons, a spike from the source neuron will lead to four spikes from the target neuron, whose time varies corresponding to four propagation paths with different integrated properties of edges represented by synaptic delay.
+
+[Model Overview]
+Unlike SNNs for traditional graph tasks, we generalize the model to allow both positive and negative synaptic weights, acting as complementary transformations to learnable synaptic delays that are viewed as an additional dimension to process graph edges and paths.
+
+[Model Overview]
+For the link prediction task (Fig. 2d ), a constant current I q is injected to the spiking neurons of the source node x for a given query q between nodes x and y, generating spike trains. The network then propagates these spikes, and a spike train s q y (t) from the target node y's neurons is obtained after a time interval. A decoding function D calculates the pair representation h q (x, y) = D(s q y (t)) for link prediction, and we primarily utilize temporal coding D(s q y (t)) = τ λ τ s q y [τ ] / ( τ λ τ ), emphasizing early spiking time. This corresponds to the decoding for various path formulations (refer to Appendix B for more details).
+
+[Comparison with Graph Neural Networks]
+The introduced GRSNN bears a resemblance to the widelyused message-passing GNNs in machine learning, both propagating messages between interconnected nodes. However, notable distinctions exist.
+
+[Comparison with Graph Neural Networks]
+First, GRSNN incorporates varied temporal synaptic delays in message passing, allowing for the encoding of relational information in spiking times with enhanced spatiotemporal processing. In contrast, GNNs uniformly propagate messages across all edges in each iteration. Second, GRSNN disseminates temporal spike trains throughout the network, as opposed to GNN's real-valued activations. This not only facilitates the representation of multiple paths through diverse spiking times within a spike train but also promotes event-driven energy-efficient computation suitable for neuromorphic hardware. Moreover, while Zhu et al. (2021) interprets GNN as a neural counterpart to the Bellman-Ford algorithm, GRSNN is perceived as a neural generalization of Dijkstra's algorithm. This parallel between artificial and brain-inspired neural networks in generalizing distinct classical algorithms for analogous objectives is intriguing.
+
+[Comparison with Graph Neural Networks]
+Once the inherent differences are accounted for, GRSNN can also have a formulation analogous to GNNs. Specifically, at each discrete time step, every node (with spiking neurons) aggregates messages from neighbors. Assuming the sharing of synaptic weights across all edges, akin to GNNs, messages are represented by delayed spikes. The aggregation function then becomes a synthesis of the summation of all messages, a linear transformation, and the spike generation with neuronal dynamics of spiking neurons. Thus, for every node z, the following holds:
+
+[Comparison with Graph Neural Networks]
+EQUATION
+
+[Comparison with Graph Neural Networks]
+Here, r signifies the relation from node k to node z, s q k [td q r ] represents the vector of spikes with associated delays d q r , and 1 z=x is an indicator for the current injection to the source node. The time steps can be viewed as the layers of GNNs, with shared weights and delays for all time steps. Consequently, the inference time and space complexity of GRSNN align closely with those of GNNs, except that they are proportional to the number of discrete time steps instead of GNN's layer number.
+
+[Implementation Details]
+Model Detail In practice, our models predominantly adhere to Eq. ( 7). The set of learnable parameters encompasses W and b, symbolizing a shared linear transformation of synaptic weights, and d q r , denoting the delay between the spiking neurons of two nodes, contingent on their relation r and the query relation q. Additionally, r signifies the embedding of relations, utilized for both current injection (I q = r q ) and the ultimate link prediction with a parameterized function to predict links based on h q (x, y) and r q . To differentiate the varying contributions of a relation (edge) in forecasting different query relations, we align with previous studies (Zhu et al., 2021) to parameterize the edge representation of relation r as a linear function over the query relation. This is then processed through a sigmoid function with a bound scale β to serve as positive delays, i.e., d q r = βσ(W r r q + b r ). In the context of homogeneous graphs characterized by a singular relation, this simplifies to d q r = βσ(b r ). It undergoes quantization and is trained by the straight-through-estimator. Post-learning, it can be archived in a look-up table, obviating the need for nonlinear computations. This can be analogous to neuromodulation with a superior signal delineating the task objective.
+
+[Method]
+MR↓ MRR↑ H@1↑ H@3↑ H@10↑ and HITS@N. For inductive knowledge graph relation prediction, the evaluation adheres to the protocols outlined in the literature (Teru et al., 2020) , where 50 negative triplets are drawn for each positive one using the filtered ranking, and the results are reported as HITS@10. For homogeneous graph link prediction, we follow Kipf & Welling (2016) ; Zhu et al. (2021) to compare the positive edges against the same number of negative edges, and the results are quantified using Area Under the Receiver Operating Characteristic Curve (AUROC) and Average Precision (AP).
+
+[Method]
+More experimental details can be found in Appendix E.3.
+
+[Comparison with prevalent machine learning methods]
+We juxtapose the performance of our bio-inspired GRSNN with various machine learning methods, including pathbased, embedding, and GNN methods, as depicted in Fig. 3 , to underscore its efficacy in knowledge graph reasoning. We derive the results of preceding methods (Zhu et al., 2021; Vashishth et al., 2020; Dold, 2022) . In essence, GRSNN secures competitive results, surpassing the majority of machine learning methods across all metrics, thereby attesting to the effectiveness of bio-inspired models in solving humanlike advanced knowledge reasoning tasks. NBFNet attains superior performance by employing numerous GNN tricks that we deliberately omitted to preserve the inherent properties of SNNs. If we further integrate some techniques (refer to Appendix E.3), our model, denoted as GRSNN+ in Fig. 3 , also achieves a better performance. Note that the proposed GRSNN prioritizes bio-plausibility, delivering promising performance with augmented efficiency, as will be analyzed in the following.
+
+[A. Training Spiking Neural Networks]
+As introduced in Section 2.1, the models for membrane potential and current are described by the following equations:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+and the equivalent SRM formulation is:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+)
+
+[A. Training Spiking Neural Networks]
+Let L denote the loss based on the spikes of neurons. With the SRM formulation, the gradients for w ij and d ij can be calculated as follows:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+where δ i (t) is the gradient for s i (t) and can be recursively calculated by backpropagation through time as:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+and κ(•) represents the derivative of κ(•).
+
+[A. Training Spiking Neural Networks]
+In practice, we simulate SNNs using the discrete computational form of the current-based LIF model:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+The gradients of δ i (t) and ∂L ∂wij can be calculated using the standard backpropagated automatic differentiation framework in deep learning libraries, based on the above formulation. The spiking function is non-differentiable, and ∂si [t] ∂ui[t] can be replaced by a surrogate derivative (Shrestha & Orchard, 2018) . We consider the derivative of the sigmoid function:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+)
+
+[A. Training Spiking Neural Networks]
+where we take a 1 = 0.25.
+
+[A. Training Spiking Neural Networks]
+The automatic differentiation of the above formulation cannot directly handle ∂L ∂dij . We rewrite it in the discrete setting as:
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+We can integrate this into the automatic differentiation by tracking the trace
+
+[A. Training Spiking Neural Networks]
+tr ij [t] = - t τ =0 κ[τ -d ij ]s j [t -τ
+
+[A. Training Spiking Neural Networks]
+] and calculating gradients based on it and the error backpropagated to s j [t -d ij ]. In the discrete setting, d ij should be an integer index. We quantize it in the forward simulation and calculate gradients using the straight-through-estimator.
+
+[A. Training Spiking Neural Networks]
+As described in Section 2.1, we consider τ c = τ m , R = e and the input kernel is κ(τ ) = eτ τm exp -τ τm for τ ≥ 0 and κ(τ ) = 0 for τ < 0. Then, κ(τ ) = e τm 1 -τ τm exp -τ τm for τ ≥ 0. In the discrete setting of the current-based LIF model, κ is better described as κ[τ ] = α(τ + 1) exp(-τ τm/∆τ ), τ ≥ 0 (where α = e τm/∆τ ). Correspondingly, we take
+
+[A. Training Spiking Neural Networks]
+κ[τ ] = α 1 -τ +1
+
+[A. Training Spiking Neural Networks]
+τm/∆τ exp -τ τm/∆τ and calculate the trace tr ij based on it. Proof. We first introduce more details of Katz Index, Personalized PageRank, and Graph Distance. As described in Section 3.2, traditional path-based algorithms for graphs calculate the pair representation between nodes x, y by considering paths from x to y, and this can be formulated as a generalized accumulation of path representations (denoted as ⊗) with a commutative summation operator (denoted as ⊕):
+
+[A. Training Spiking Neural Networks]
+EQUATION
+
+[A. Training Spiking Neural Networks]
+)
+
+[A. Training Spiking Neural Networks]
+where P xy is the set of paths from x to y, e i is the i-th edge on a path P , and v q (e i ) is the representation of the edge (e.g., the transition probability of this edge). Katz Index is a path formulation with ⊕ = +, ⊗ = ×, v q (e) = β, Personalized PageRank is with ⊕ = +, ⊗ = ×, v q (e) = 1/d out (z) (where d out (z) is the output degree of the start node z of edge e), and Graph Distance is with ⊕ = min, ⊗ = +, v q (e) = 1.
+
+[A. Training Spiking Neural Networks]
+We examine these three distinct settings:
+
+[A. Training Spiking Neural Networks]
+(1) Graph Distance: In this setting, each graph node is assigned one spiking neuron, and neurons are connected if there exists a graph edge between them, with all synaptic weights and thresholds set to 1. Consequently, each input spike to a neuron will trigger an output spike. The synaptic delay of each edge is set as the corresponding positive graph edge length, allowing the propagation of spikes along edges to accumulate edge length into time. By initiating a spike from the source node at time 0, GRSNN propagates spikes throughout the network, and the time to the first spike of each node represents the shortest distance to the source node. Utilizing the decoding function of the spike train from the target node as the first spiking time allows us to compute the graph distance.
+
+[A. Training Spiking Neural Networks]
+(2) Katz Index: The Katz Index necessitates the accumulative multiplication of edge representations. By applying the log operation, this multiplication can be transformed into accumulation. For an edge representation β ∈ (0, 1) of Katz Index, corresponding to an attenuation factor, the synaptic delay is set as d = -log β (potentially scaled). For a spiking time t, 10 -t represents the accumulative multiplication of edge representations in the path. To sum over all paths, the number of paths during spike propagation must be maintained. A single spiking neuron is insufficient for this task as it will only generate one output spike when multiple paths simultaneously propagate to the same node. This limitation can be addressed by employing multiple spiking neurons, assigning N spiking neurons to each graph node, with thresholds set as 1, 2, • • • , N . Neurons connected by graph edges have synaptic weights of 1 and delays as described above. The time and number of spikes of each node correspond to different paths from the source node. After sufficient propagation time, the decoding function of the spike train from the target node is defined as D(s(t)) = τ 10 -τ ( i s i [τ ]), enabling the computation of the Katz Index.
+
+[A. Training Spiking Neural Networks]
+(3) Personalized PageRank: This is analogous to the Katz Index, with the edge representation being the transition probability 1/d out (z) ∈ (0, 1). The synaptic delay is similarly set as d = -log(1/d out (z)) (or with a scale). Thus, Personalized PageRank can be computed similarly to the Katz Index.
+
+[A. Training Spiking Neural Networks]
+Remark B.2. The crux of the proof revolves around the construction of appropriate synaptic delays and decoding functions.
+
+[A. Training Spiking Neural Networks]
+As illustrated in the construction, distinct temporal coding methods naturally arise for varying path formulations. In many scenarios, the significance of edge representations in knowledge graphs can be interpreted as learnable probabilities, making the accumulative multiplication setting (as in Katz Index and Personalized PageRank) particularly advantageous. This results in the adoption of temporal coding in our experiments in the main text, assigning different weights to different spikes, represented as D(s q y (t)) = τ λ τ s q y [τ ] τ λ τ , except a constant factor. A notable distinction is that, instead of a straightforward summation across different neurons, we derive the pair representation as a vector of different neurons. Subsequently, the likelihood is computed using a learnable function g, aligning with the prevalent approaches in graph reasoning methods (refer to Section 3.4). This approach also serves as a broader generalization of the formulation in the construction.
+
+[Models and training]
+Given the substantial computational expense associated with simulating SNNs over a long time, our primary simulations involve T = 10 discrete time steps for SNNs. The hyperparameters for SNNs are designated as τ m /∆τ = 4, V th = 2, with the discrete delay bound β = 4, and λ = 0.95 for the decoding function. This can correspond to τ m = τ c = 20ms with discretization interval ∆τ = 5ms and a total simulation time T × ∆τ = 50ms for SNNs. For experiments analyzing temporal discretization steps in Appendix F.3, hyperparameters are adjusted relative to the discrete step; for instance, for T = 5, we assign τ m /∆τ = 2, β = 2, λ = 0.9 (corresponding to ∆τ = 10ms), and for T = 20, we designate τ m /∆τ = 8, β = 8, λ = 0.97 (corresponding to ∆τ = 2.5ms). Each graph node is represented by n = 32 spiking neurons by default. No normalization or other modifications are applied, and for models on FB15k-237, a linear scale of 0.1 is applied post the linear transformation W.
+
+[Models and training]
+As for the two baseline SNN models that we compare in Section 4 to elucidate the superiority of synaptic delay, the first model abstains from encoding edge relations, and the delay d q r in Eq. ( 7) is not taken into account, i.e., it is assigned a value of zero. The second model opts for encoding relations through synaptic weight instead of synaptic delay. We modify s q k [t -d q r ] in Eq. ( 7) to w q r ⊙ s q k [t] (where w q r is defined analogously to d q r but devoid of the sigmoid function and bound scale, and w q r can be amalgamated into W to formulate the entire synaptic weight). This alteration aligns with the DistMult message function utilized in prior works to multiply messages with edge representations (Zhu et al., 2021) .
+
+[Models and training]
+For GRSNN+, we apply layer normalization (LN) after the linear transformation of the aggregated messages as in many GNNs, and encode relations in both synaptic delay and synaptic weight, i.e., the messages are w q r ⊙ s q k [t -d q r ]. For FB15k-237, we further adopt the principal neighborhood aggregation (PNA) as the aggregation function instead of summation, which is a major component for the high performance of NBFNet (Zhu et al., 2021) . We show that by integrating these GNN tricks, GRSNN can also achieve a better performance.
+
+[Models and training]
+All models are trained utilizing the Adam optimizer over 20 epochs. The learning rate is 2e -3 for transductive settings (knowledge graph completion and homogeneous graph link prediction) and 5e -3 for inductive settings. The batch size is 32 (30 for transductive FB15k-237), achieved by accumulating gradients across several iterations with smaller mini-batches each iteration.
+
+[Models and training]
+The ratio of negative samples is configured to 256 for FB15k-237 and WN18RR in the transductive setting and 50 in the inductive setting to align more closely with testing conditions, while it is established as 1 for homogeneous graphs, adhering to previous studies. The temperature in self-adversarial negative sampling is determined to be 0.5 and 1 for FB15k-237 and WN18RR, respectively. Model selection is based on validation performance, with MRR serving as the criterion for knowledge graphs and AUROC for homogeneous graphs.
+
+[Models and training]
+Our code implementation leverages the PyTorch framework, and experimental evaluations are executed on one or two NVIDIA GeForce RTX 3090 GPUs.

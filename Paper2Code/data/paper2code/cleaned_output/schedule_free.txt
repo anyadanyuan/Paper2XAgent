@@ -1,0 +1,149 @@
+[Abstract]
+Existing learning rate schedules that do not require specification of the optimization stopping step T are greatly out-performed by learning rate schedules that depend on T . We propose an approach that avoids the need for this stopping time by eschewing the use of schedules entirely, while exhibiting state-of-the-art performance compared to schedules across a wide family of problems ranging from convex problems to large-scale deep learning problems. Our Schedule-Free approach introduces no additional hyper-parameters over standard optimizers with momentum. Our method is a direct consequence of a new theory we develop that unifies scheduling and iterate averaging. An open source implementation of our method is available 1 . Schedule-Free AdamW is the core algorithm behind our winning entry to the MLCommons 2024 AlgoPerf Algorithmic Efficiency Challenge Self-Tuning track.
+
+[Method]
+We propose the following method, which we call Schedule-Free SGD:
+
+[Method]
+EQUATION
+
+[Method]
+EQUATION
+
+[Method]
+where c t+1 = 1/(t+1) and z 1 = x 1 is the initial point. Note that, with this weighting, the x sequence is just a running average of the z sequence. The y sequence is the gradient location sequence (on which gradients are evaluated at each step). The z sequence is the base sequence, which is where the base optimizer's update is performed (in this case SGD). The x sequence is the evaluation sequence, our best estimate of the weights so far.
+
+[Method]
+This method has a momentum parameter β that interpolates between Polyak-Ruppert averaging (β = 0) and Primal averaging (β = 1). Primal averaging (Nesterov and Shikhman, 2015; Tao et al., 2018; Cutkosky, 2019; Kavis et al., 2019; Sebbouh et al., 2021; Defazio and Gower, 2021; Defazio and Jelassi, 2022) , is an approach where the gradient is evaluated at the averaged point x, instead of z:
+
+[Method]
+EQUATION
+
+[Method]
+this approach maintains the worst-case optimality of PR averaging but is generally considered to converge too slowly to be practical (Figures 2a, 8 ). The advantage of our interpolation is that we get the best of both worlds. We can achieve the fast convergence of Polyak-Ruppert averaging (since the z sequence moves much quicker than the x sequence), while still keeping some coupling between the returned sequence x and the gradient-evaluation locations y, which increases stability. Values of β similar to standard momentum values β ≈ 0.9 appear to work well in practice. We will use the notation α = 1 -β when convenient.
+
+[Method]
+In this formulation, β = 0.9 gives the practical advantages of momentum, dampening the immediate impact of large gradients, resulting in more stable training. To see this, notice that the immediate effect of the gradient g t at step t is to introduce (1 -β)g t = 0.1g t into the iterate sequence y. This is similar to exponential-moving-average (EMA) momentum, where also (1 -β)g t is added into the iterate sequence on step t. However, here the remainder of g t is very slowly added into y over time, via its place in the average x, whereas with an EMA with β = 0.9, the majority of the gradient is incorporated within the next 10 steps. So from this viewpoint, the Schedule-Free updates can be seen as a version of momentum that has the same immediate effect, but with a greater delay for adding in the remainder of the gradient. This form of momentum (by interpolation) also has a striking advantage: it does not result in any theoretical slowdown; it gives the optimal worst case (Nesterov, 2013) convergence for the non-smooth convex setting (including constants), for any choice of momentum β between 0 and 1 inclusive:
+
+[Method]
+Theorem 1. Suppose F is a convex function, and ζ 1 , . . . , ζ T is an i.i.d. sequence of random variables such that F = E[f (x, ζ)] for some function f that is G-Lipschitz in x.
+
+[Method]
+For any minimizer x ⋆ , define
+
+[Method]
+D = ∥x 1 -x ⋆ ∥ and γ = D/(G √ T ).
+
+[Method]
+Then for any β ∈ [0, 1], Schedule-Free SGD ensures:
+
+[Method]
+E[F (x T ) -F (x ⋆ )] ≤ DG √ T (8)
+
+[Method]
+In contrast, exponential-moving-average momentum in the non-smooth setting actually hurts the theoretical worst-case convergence rate. The Schedule-Free approach maintains the advantages of momentum (Sutskever et al., 2013) without the potential worst-case slow-down.
+
+[MLCommons Algorithmic Efficiency benchmark]
+The AlgoPerf challenge (Dahl et al., 2023) is designed to be a large-scale and comprehensive benchmark for deep learning optimization algorithms, covering major data domains and architectures. It includes Transformers, ConvNets and U-Net models across image, language, graph and speech domains, and contains 8 problems total. We evaluated Schedule-Free AdamW following the competition guidelines, comparing against NAdamW, the competition reference Algorithm, running 10 seeds of each. As this is a time-to-target competition, traditional error bars are not appropriate so we instead plot all 10 seeds separately. Note that we excluded one benchmark problem, ResNet-50 training, as neither AdamW nor NAdamW can hit the target accuracy on that task. The self-tuning track restricts participants to provide a single set of hyper-parameters to use for all 8 problems. Given the large number of problems, this gives performance representative of a good default configuration.
+
+[MLCommons Algorithmic Efficiency benchmark]
+Schedule-Free AdamW performs well across all considered tasks, out-performing the baseline on the WMT, VIT, FASTMRI and OGBG training, while tying on the Conformer and Criteo workloads, and marginally under-performing on the DeepSpeech workload. We attribute the performance on the Conformer and DeepSpeech tasks to their use of batch-norm -the AlgoPerf setup doesn't easily allow us to update the BN running statistics on the x sequence, which is necessary with our method to get the best performance (See Section 4.3).
+
+[Implementation Concerns]
+The Schedule-Free variant of a method typically has the same memory requirements as the base method. For instance, Schedule-Free SGD requires no extra memory over standard SGD with momentum. Whereas SGDM tracks the current point x and the momentum buffer m, we can track x and z. The quantity y can be computed directly from the latest values of x and z, and so doesn't need Algorithm 1 Schedule-Free AdamW 1: Input: x 1 , learning rate γ, decay λ, warmup steps T warmup , β 1 , β 2 , ϵ 2: z 1 = x 1 3: v 0 = 0 4: for t = 1 to T do 5:
+
+[Implementation Concerns]
+y t = (1 -β 1 )z t + β 1 x t ▷ Momentum via interpolation 6: g t ∈ ∂f (y t , ζ t ) ▷ Gradient is evaluated at y 7: v t = β 2 v t-1 + (1 -β 2 )g 2 t 8: γ t = γ 1 -β t 2 min(1, t/T warmup )
+
+[Implementation Concerns]
+▷ LR includes warmup and Adam bias-correction 9:
+
+[Implementation Concerns]
+z t+1 = z t -γ t g t /( √ v t + ϵ) -γ t λy t 10: c t+1 = γ 2 t t i=1 γ 2 i 11: x t+1 = (1 -c t+1 ) x t + c t+1 z t+1
+
+[Implementation Concerns]
+▷ Update weighted iterate average 12: end for 13: Return x T xx to be explicitly stored. It's also possible to instead store z and y, and then compute x when needed. This low memory usage is the case for AdamW also, see Algorithm 1.
+
+[Implementation Concerns]
+Our efficient PyTorch implementation actually uses one buffer to always store z and the primary parameter buffer to store either x or y, with the stored quantity flipping between the two for training and test/inference passes.
+
+[Implementation Concerns]
+Our method requires extra code to handle models where batch norm is used. This is due to the fact that BatchNorm layers maintain a running_mean and running_var to track batch statistics which is calculated at y. For model evaluation, these buffers need to be updated to match the statistics on the x sequence. This can be done by evaluating a small number of training batches using x right before each eval. More sophisticated approaches such as PreciseBN (Wu and Johnson, 2021) can also be used. This calculation is not needed for other normalization layers that do not use batch-statistics.
+
+[Implementation Concerns]
+Learning rate warmup is still necessary for our method. We use a linear warmup for a fixed duration, and fuse the Adam bias-correction term into the learning rate for simplicity (this potentially impacts the effect of weight-decay during early iterations), giving a learning rate LR γ t = γ 1 -β t 2 min(1, t/T warmup ) that approaches γ when the warmup and bias-correction period ends. We found that performance was greatly improved by using a weighted c t sequence when 
+
+[Implementation Concerns]
+EQUATION
+
+[Implementation Concerns]
+)
+
+[Implementation Concerns]
+This sequence decreases at a 1/t rate after the learning rate warmup. It is shifted by one from the indexing used in Theorem 2, which is done to simplify the implementation. This sequence is motivated by Theorem 2's weighting sequences, which suggest weights proportional to polynomials of the learning rate. This sequence was used for both SGD and AdamW experiments.
+
+[Implementation Concerns]
+Weight decay for Schedule-Free methods can be computed at either the y or z sequences. We used decay at y for our experiments, as this matches the interpretation of weight-decay as the use of an additional L2-regularizer term in the loss. We found that computing the regularization at y gives significantly better performance on some problems including ImageNet and NanoGPT training.
+
+[Implementation Concerns]
+5 Parameter Sensitivity For Schedule-Free learning to be truly schedulefree, it's important that the momentum hyperparameter doesn't implicitly have a dependence on the time-horizon. If tuning this parameter gave different values depending on the training duration, then the problem of setting the horizon has just been shifted to setting the momentum value. In Figure 5 we run ImageNet training with Schedule-Free SGD for a longerthen-standard 200 epochs with a variety of momentum values, with the LR fixed to 1.5. We find that the best choice of momentum (β = 0.9) is the same for all durations of training.
+
+[Implementation Concerns]
+Schedule-Free learning has a similar mild time-horizon dependency for the baseline learning rate value as schedule-based approaches. Figure 6 shows that the optimal learning rate stays the same for broad range of values, for both Schedule-Free and Schedule based training. For short duration training (≤ 25 epochs), larger LR values begin to show the best performance. Appendix J shows the sensitivity of the final test accuracy to the baseline learning rate for a selection of our test problems, in comparison to the baseline optimizer with a cosine schedule. We see that the overall sensitivity is similar to the baseline optimizer in each problem.
+
+[E Strongly Convex Losses]
+Suppose that the expected loss F is actually known to be µ-strongly convex. Then we'd like to have a convergence guarantee of O(1/µT ). This is achieved in Theorem 6 below. Theorem 6. Under the same assumptions as Theorem 5, define ℓ t (z) = ⟨g t , z⟩ + µ 2 ∥y t -z∥ 2 . Define the "regret" of the sequence z t as:
+
+[E Strongly Convex Losses]
+Regret ℓ (x ⋆ ) = T t=1 w t (ℓ t (z t ) -ℓ t (x ⋆ )).
+
+[E Strongly Convex Losses]
+Then we have for x ⋆ = argmin F :
+
+[E Strongly Convex Losses]
+E[F (x T ) -F (x ⋆ )] ≤ E Regret ℓ (x ⋆ ) - T t=1 wtµ 2 ∥z t -y t ∥ 2 w 1:T .
+
+[E Strongly Convex Losses]
+In particular, suppose ∥x ⋆ ∥ ≤ D for some known bound D and ∥g t ∥ ≤ G for all t for some G so long as ∥y t ∥ ≤ D. Then if we define w t = t for all t and set z t by:
+
+[E Strongly Convex Losses]
+z t+1 = Π ∥z∥≤D z t - 2(g t + µ(z t -y t )) µ(t + 1
+
+[E Strongly Convex Losses]
+) .
+
+[E Strongly Convex Losses]
+then we have:
+
+[E Strongly Convex Losses]
+EQUATION
+
+[E Strongly Convex Losses]
+Proof. From Theorem 5, we have:
+
+[E Strongly Convex Losses]
+E[F (x T ) -F (x ⋆ )] ≤ E T t=1 w t ⟨g t , z t -x ⋆ ⟩ w 1:T - T t=1 w t B F (x ⋆ , y t ) w 1:T .
+
+[E Strongly Convex Losses]
+Now, since F is µ-strongly convex, we have B F (x ⋆ , y t ) ≥ µ 2 ∥y t -x ⋆ ∥ 2 . Further, we have:
+
+[E Strongly Convex Losses]
+T t=1 w t ⟨g t , z t -x ⋆ ⟩ = T t=1 w t (ℓ t (z t ) -ℓ t (x ⋆ )) - w t µ 2 ∥z t -y t ∥ 2 + w t µ 2 ∥x ⋆ -y t ∥ 2 .
+
+[E Strongly Convex Losses]
+From this we obtain the desired result:
+
+[E Strongly Convex Losses]
+E[F (x T ) -F (x ⋆ )] ≤ E Regret ℓ (x ⋆ ) - T t=1
+
+[E Strongly Convex Losses]
+wtµ 2 ∥z t -y t ∥ 2 w 1:T .
+
+[E Strongly Convex Losses]
+For the final statement, observe that with w t = t, w t ℓ t (z) = t⟨g t , z⟩ + tµ 2 ∥z -y t ∥ 2 is tµ-strongly convex. Therefore if we use learning rate η t = 1 µw1:t = 2 µt(t+1) , then standard analysis of projected OGD yields:
+
+[E Strongly Convex Losses]
+T t=1 t(ℓ t (z t ) -ℓ t (x ⋆ )) ≤ T t=1 t⟨∇ℓ t (z t ), z t -x ⋆ ⟩ - tµ 2 ∥z t -x ⋆ ∥ 2 ≤ ∥z 1 -x ⋆ ∥ 2 1 2η 1 - µ 2 ∥z t -x ⋆ ∥ 2 - ∥z T +1 -x ⋆ ∥ 2 2η T + T t=2 ∥z t -x ⋆ ∥ 2 1 2η t - 1 2η t-1 - tµ 2 + T t=1 η t t 2 ∥∇ℓ t (z t )∥ 2 2 ≤ T t=1 η t t 2 ∥∇ℓ t (z t )∥ 2 2 ≤ 1 µ T t=1 ∥∇ℓ t (z t )∥ 2 = 1 µ T t=1 ∥g t + µ(z t -y t )∥ 2 ≤ T (G + 2µD) 2 µ .
+
+[E Strongly Convex Losses]
+where in the last inequality we have observed that since ∥z t ∥ ≤ D and y t is a linear combination of past z values, ∥y t ∥ ≤ D as well. Finally, observing that w 1:T = T (T +1)

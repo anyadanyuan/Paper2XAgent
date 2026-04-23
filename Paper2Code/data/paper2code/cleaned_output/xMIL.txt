@@ -1,0 +1,179 @@
+[Abstract]
+Multiple instance learning (MIL) is an effective and widely used approach for weakly supervised machine learning. In histopathology, MIL models have achieved remarkable success in tasks like tumor detection, biomarker prediction, and outcome prognostication. However, MIL explanation methods are still lagging behind, as they are limited to small bag sizes or disregard instance interactions. We revisit MIL through the lens of explainable AI (XAI) and introduce xMIL, a refined framework with more general assumptions. We demonstrate how to obtain improved MIL explanations using layer-wise relevance propagation (LRP) and conduct extensive evaluation experiments on three toy settings and four real-world histopathology datasets. Our approach consistently outperforms previous explanation attempts with particularly improved faithfulness scores on challenging biomarker prediction tasks. Finally, we showcase how xMIL explanations enable pathologists to extract insights from MIL models, representing a significant advance for knowledge discovery and model debugging in digital histopathology. Codes are available at: https://github.com/bifold-pathomics/xMIL.
+
+[MIL explanation methods.]
+From the few studies investigating MIL interpretability, most of them use attention heatmaps [3, 4, 6, 27, 28, 29] . Moreover, basic gradient-and propagation-based methods have been explored for specific architectures and applications [54, 55] . Sadafi et al. [55] applied LRP to generate pixel-level attributions for single-cell images in a blood cancer diagnosis task, but did not consider its potential for instance-level explanations. Perturbation-based methods, building on model-agnostic approaches like SHAP [56] , perturb bag instances and compute importance scores from the resulting change in the model prediction; Early et al. [34] proposed passing bags of single instances through the model ("single"), dropping single instances from bags ("one-removed"), and sampling coalitions of instances to be removed ("MILLI"). Javed et al. [33] introduced "additive MIL", providing directly interpretable instance scores while constraining the model's ability to capture instance interactions.
+
+[Methods]
+Notation. We denote vectors with boldface lowercase letters (e.g., x), scalars with lowercase letters (e.g., x), and sets with uppercase letters (e.g., X).
+
+[xMIL: An XAI-based framework for multiple instance learning]
+We address the limitations discussed in Section 2.2 and introduce a more general formulation of MIL: explainable multiple instance learning (xMIL). At its core, we propose moving away from the notion of instance labels towards context-aware evidence scores, which better reflect the intricacies of histopathology while laying the foundation for developing and evaluating MIL explanation methods. Definition 3.1 (Explainable multiple instance learning). Let X = {x 1 , . . . , x K } be a bag of instances with a bag label y ∈ R.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+(1) There exists an aggregation function A that maps the bag to its label, i.e., A(X) = y. We make no assumptions about the relationship among the instances or between the instances and the label y.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+(2) There exists an evidence function E assigning an evidence score E(X, y, x k ) = ϵ k ∈ R to any instance x k in the bag, quantifying the impact the instance has on the bag label y. The aim of xMIL is to estimate (i) the aggregation function A and (ii) the evidence function E. Definition 3.2 (Properties of the evidence function). Let x k , x k ′ be instances from a bag X. We assume that E has the following properties.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+(1) Context sensitivity. The evidence score ϵ k of instance x k may depend on other instances from X.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+(2) Positive and negative evidence. If ϵ k > 0, the instance x k has a positive impact on the bag label y. If ϵ k < 0, then x k has a negative impact on y. If ϵ k = 0, then x k is irrelevant to y.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+(3) Ordering. If ϵ k > ϵ k ′ ≥ 0, then instance x k has a higher positive impact on y than x k ′ . If 0 ≥ ϵ k ′ > ϵ k , then instance x k has a higher negative impact on y than x k ′ . Similar to our definition, previous works described context sensitivity and accounting for positive and negative evidence as desirable properties of MIL explanation methods [33, 34] . However, xMIL integrates these principles directly into the formalization of the MIL problem.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+In contrast to previous MIL formulations, xMIL addresses the potential complexities within histopathological prediction tasks by refraining from posing strict assumptions on A. Via the evidence function E, we suggest that instances may vary in their ability to support or refute a class and that their influence may depend on the context within the bag. In practice, the evidence function is often unknown, as the notion of an "impact" on the bag label is hard to quantify. For the standard MIL setting, however, the binary instance labels fulfill the criteria of the evidence function. Therefore, xMIL is a more general and realistic formulation of multiple instance learning for histopathology.
+
+[xMIL: An XAI-based framework for multiple instance learning]
+We can learn the aggregation function A via training a MIL model. To gain deeper insights into the prediction task by estimating the evidence function E, we design an explanation method for the learned aggregation function with characteristics suitable to the properties of the evidence function.
+
+[Properties of xMIL-LRP and other explanation methods]
+The properties of xMIL-LRP are particularly suitable for estimating the evidence function:
+
+[Properties of xMIL-LRP and other explanation methods]
+Context sensitivity: xMIL-LRP disentangles instance interactions and contextual information as it jointly considers the relevance flow across the whole bag. LRP and Gradient × Input (G×I) are rooted in a deep Taylor decomposition of the model prediction [63] and consequently capture dependencies between features by tracing relevance flow through the components of the MIL model. While attention is context-aware, it is limited to considering dependencies of features at a specific layer. The "single" method is unaware of context. "One-removed" and additive MIL can only capture the impact of individual instances on the prediction.
+
+[Properties of xMIL-LRP and other explanation methods]
+Positive and negative evidence: xMIL-LRP relevance scores are real-valued and can identify whether an instance supports or refutes the model prediction. Features irrelevant to the prediction will receive an explanation score close to zero. Therefore, the range of explanation scores matches the range of the assumed evidence function. The same holds for additive MIL, MILLI, and "one-removed". Attention and "single" do not distinguish between positive and negative evidence.
+
+[Properties of xMIL-LRP and other explanation methods]
+Conservation: Following the conservation principle of LRP, xMIL-LRP provides an instance-wise decomposition of the model output, i.e., k εk = k,d r kd = y. This instance-level conservation also holds for additive MIL, but not for the other discussed methods. The local conservation principle of LRP [36] further allows us to analyze attribution scores at the instance feature vector level without requiring propagation through the foundation model-the instance-wise attribution scores are the same at any layer of the model.
+
+[Perturbation-based methods]
+The idea of perturbation-based explanation methods is to perturb selected instances of a bag and derive importance scores from the resulting change in the model prediction. It builds on model-agnostic post-hoc local interpretability methods like LIME [78] and SHAP [56] .
+
+[Perturbation-based methods]
+Early et al. [34] proposed and evaluated multiple perturbation-based methods of different complexity.
+
+[Perturbation-based methods]
+The "single" method passes bags of single patches X k = {x k } for k = 1, . . . , K through the model and uses the outcome f (X k ) as explanation score. "One removed" drops single patches, i.e. constructs bags Xk = X\X k for k = 1, . . . , K and defines the difference to the original prediction score f (X) -f ( Xk ) as explanation. The "combined" approach takes the mean of these two scores. As these methods cannot account for patch interactions, Early et al. also propose an algorithm to sample coalitions of patches to be perturbed, called MILLI. They show that MILLI outperforms the baselines on toy datasets when instance interactions need to be considered. The complexity of MILLI is O(nK 2 ), where n is the number of coalitions and K is the bag size.
+
+[Perturbation-based methods]
+Additive MIL The idea of additive MIL [33] is to make the MIL model inherently interpretable by designing the bag-level prediction to be a sum of individual instance predictions. Let function f be a feature extractor and ψ m , ψ p MLPs. In many cases, particularly for Attention MIL [3] , a MIL model p can be written as
+
+[Perturbation-based methods]
+EQUATION
+
+[Perturbation-based methods]
+where a k is the attention score of instance k. For Attention MIL, ψ m is defined as the inner part of the softmax function of Equation 2, and ψ p as prediction head outputting class logits. To obtain an additive model, the authors suggest to instead compute
+
+[Perturbation-based methods]
+EQUATION
+
+[Perturbation-based methods]
+)
+
+[Perturbation-based methods]
+This way, the bag prediction becomes the sum of the individual instance predictions ψ p (a k f (x k )), which can be used as instance explanation scores. These instance logits are proportional to the Shapley values of the instances [33] . In our experiments, we consider the proposed additive variant of Attention MIL (AddMIL).
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+LRP is a method for explaining neural network predictions by redistributing the output's relevance back through the network to the input features. The redistribution follows a relevance conservation principle, where the total relevance of each layer is preserved as it propagates backward. If r (l) j denotes the relevance of neuron j in layer l, conservation means that j r
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+(l1) j = i r (l2) i
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+holds for any two layers l 1 and l 2 . As a general principle, LRP posits
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+EQUATION
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+with q ij being the contribution of neuron i of layer l relevance r (l+1) j
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+. There are "propagation rules" for various layer types [36, 58] that specify q ij for different setups.
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+Feed forward neural network. The following generic rule holds for propagating relevance through linear layers followed by ReLU [36] :
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+EQUATION
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+where a j is the activation of neuron j in layer l, w ij the weight from neuron i of layer l to neuron j of layer l + 1, ϵ a stabilizing term to prevent numerical instabilities, and ρ(w ij ) a modification of the weights of the linear layer. For example, if ρ(w ij ) = w ij + γmax(w ij , 0), then Equation 7 is called LRP-γ rule. For γ = 0, this equation is called LRP-ϵ rule.
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+LayerNorm. Assume z k is the embedding of the k-th token and y k = LayerNorm(z k ) as:
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+EQUATION
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+where E{z} and std{z} are the expected values and standard deviation of the tokens.
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+For propagating relevance through LayerNorm, Ali et al. [32] suggested the LN-rule as the following:
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+EQUATION
+
+[A.2 Layer-wise Relevance Propagation (LRP)]
+where δ kj = 1, if k = j 0, otherwise and z kd is the d-th dimension of z k and R(z kd ) is the relevance assigned to it. In practice, LN-rule is implemented by detaching std{z} and handling it as a constant.
+
+[A.3 Toy experiments: Training and evaluation details]
+Evidence functions. We define the evidence functions for the three datasets as follows. We write x k ∼ n to indicate that instance k represents MNIST number n.
+
+[A.3 Toy experiments: Training and evaluation details]
+• In the 4-Bags dataset, 8 supports classes 1 and 3 but refutes classes 0 and 2, while 9 supports classes 2 and 3 but refutes classes 0 and 1. Hence, for x k ∼ 8, we define ϵ
+
+[A.3 Toy experiments: Training and evaluation details]
+(c) k = 1 for c ∈ {1, 3} and ϵ (c) k = -1 for c ∈ {0, 2}. For x k ∼ 9, we set ϵ (c) k = 1 for c ∈ {2, 3} and ϵ (c) k = -1 for c ∈ {0, 1}. In all other cases, ϵ (c) k = 0.
+
+[A.3 Toy experiments: Training and evaluation details]
+• In Pos-Neg, 4, 6, and 8 instances support class 1 and refute class 0, and vice versa for 5, 7, 9.
+
+[A.3 Toy experiments: Training and evaluation details]
+Hence, we set ϵ
+
+[A.3 Toy experiments: Training and evaluation details]
+k = 1 and ϵ
+
+[A.3 Toy experiments: Training and evaluation details]
+EQUATION
+
+[A.3 Toy experiments: Training and evaluation details]
+k = -1 and ϵ 
+
+[A.3 Toy experiments: Training and evaluation details]
+(0) k = 1 if x k ∼ {5, 7,
+
+[A.3 Toy experiments: Training and evaluation details]
+k = 0 otherwise. The evidence scores for the other numbers are defined accordingly.
+
+[A.3 Toy experiments: Training and evaluation details]
+Evaluation metric. We aim to measure whether an explanation method correctly distinguishes instances with positive, neutral, and negative evidence scores. We separate this into two steps: quantify the separation between positive and non-positive instances, and quantify the separation between negative and non-negative instances. Let e (c) = [ϵ
+
+[A.3 Toy experiments: Training and evaluation details]
+EQUATION
+
+[A.3 Toy experiments: Training and evaluation details]
+K ] be the evidence scores for some bag X = {x 1 , . . . , x K } and class c, and
+
+[A.3 Toy experiments: Training and evaluation details]
+EQUATION
+
+[A.3 Toy experiments: Training and evaluation details]
+K ] be the class-wise explanation scores from some explanation method. We define e (c) pos = min(e (c) , 0) and e (c) neg = min(-e (c) , 0) as the binarized positive and negative evidence, and compute
+
+[A.3 Toy experiments: Training and evaluation details]
+EQUATION
+
+[A.3 Toy experiments: Training and evaluation details]
+We utilize the area under the precision-recall curve (AUPRC) to account for potential imbalances.
+
+[A.3 Toy experiments: Training and evaluation details]
+Our AUPRC-2 metric can be interpreted as the one-vs-all AUPRC score for detecting positive and negative instances. It becomes 1 if all instances with positive / negative evidence have been assigned the highest / lowest evidence scores. For each dataset and explanation method, we computed the AUPRC-2 across all classes and test bags and report the average score.
+
+[A.3 Toy experiments: Training and evaluation details]
+Experimental details. Instead of training end-to-end MIL models, we obtained feature vectors with 512 dimensions for each MNIST image via a ResNet18 model pre-trained on Imagenet from the TorchVision library [79] . For each bag, we first sampled a subset of numbers, where each number was selected with a probability of 0.5, and then randomly drew 30 MNIST feature vectors from this subset. We used 2,000 bags for training, 500 for validation, and 1,000 for testing. We trained AttnMIL and TransMIL models with a learning rate of 0.0001 for a maximum of 1000 and 200 epochs for AttnMIL and TransMIL, respectively. We finally selected the model with the lowest validation loss. We repeated each model training 30 times and report means and standard deviations across repetitions. Each experiment with its repetitions was run on single CPUs in less than 24 hours, respectively. We used the same setting for training AddMIL, but with an Adam optimizer as in the original paper [33] .
+
+[A.4 Histopathology experiments: Data and training details]
+Dataset details. We downloaded TCGA HNSC, LUAD, and LUSC datasets from TCGA website. The HPV status of HNSC dataset and the TP53 mutations of LUAD dataset were downloaded from cBioPortal [80, 81, 82] . We applied the following splits.
+
+[A.4 Histopathology experiments: Data and training details]
+• CAMELYON16: We used the pre-defined test set of 130 slides, and randomly split the remaining slides into 230 for training and 40 for validation. • NSCLC: As in previous works [4, 33] , we randomly split the slides into 60% training, 15% validation, and 25% test data. • HNSC HPV: Due to the low number of HPV-positive samples, we uniformly split the dataset into three cross-validation folds like in previous work [12] . • LUAD TP53: We randomly split the slides into 60% training, 15% validation, and 25% test data. From TCGA-BA-A6DB

@@ -1,0 +1,86 @@
+[Abstract]
+While many contemporary large language models (LLMs) can process lengthy input, they still struggle to fully utilize information within the long context, known as the lost-in-the-middle challenge. We hypothesize that it stems from insufficient explicit supervision during the long-context training, which fails to emphasize that any position in a long context can hold crucial information. Based on this intuition, our study presents INformation-INtensive ( IN2) training, a purely data-driven solution to overcome lost-in-the-middle. Specifically, IN2 training leverages a synthesized long-context question-answer dataset, where the answer requires (1) fine-grained information awareness on a short segment (∼128 tokens) within a synthesized long context (4K-32K tokens), and (2) the integration and reasoning of information from two or more short segments. Through applying this information-intensive training on Mistral-7B, we present FILM-7B (FILlin-the-Middle). To thoroughly assess the ability of FILM-7B for utilizing long contexts, we design three probing tasks that encompass various context styles (document, code, and structured-data context) and information retrieval patterns (forward, backward, and bi-directional retrieval). The probing results demonstrate that FILM-7B can robustly retrieve information from different positions in its 32K context window. Beyond these probing tasks, FILM-7B significantly improves the performance on real-world long-context tasks (e.g., 23.5→26.9 F1 score on NarrativeQA), while maintaining a comparable performance on short-context tasks (e.g., 59.3→59.2 accuracy on MMLU).
+
+[Information-Intensive Training]
+This section introduces the construction of the dataset for IN2 training and the detailed training process of our model FILM-7B.
+
+[Training Data Construction]
+Overview. The IN2 training aims to explicitly teach the model that any position in a long context can contain crucial information. To achieve this goal, we construct a long-context question-answer training dataset D = {L i , q i , a i }, where the answer a i to the question q i requires the information contained in some short segments that are randomly placed in the whole long context L i .
+
+[Training Data Construction]
+Figure 2 illustrates an overview of the data construction process. Specifically, the training data D is constructed based on a general natural language corpus C. Given a raw text C i ∈ C, we first generate a question-answer pair (q i , a i ) using a powerful LLM, then synthesize a long context L i that includes the necessary information from C i and other randomly sampled texts from C. We generate two types of question-answer pairs that require (1) the awareness of fine-grained information in the long context, and (2) the integration and reasoning of information appearing at different positions in the long context. We take the realnewslike subset from the C4 corpus (Raffel et al., 2020) as C, and take GPT-4-Turbo (OpenAI, 2023b) as the LLM to generate QA pairs.
+
+[Training Data Construction]
+Fine-grained information awareness. We consider a 128-token segment as the minimum information unit of the context3 . Given a raw text C i , we first randomly extract a 128-token segment s i from it, then generate the q i , a i and L i accordingly, Figure 3 : Three tasks in VAL Probing. The retrieval patterns are determined by the relative positions between the retrieval keywords and the information to be retrieved.
+
+[Training Data Construction]
+EQUATION
+
+[Training Data Construction]
+where (q i , a i ) is sampled by prompting the powerful LLM with the segment s i and the instruction I f , ⊕{•} represents the concatenation of the contained segments, and [r j ] are randomly sampled from 128-token segments in C. Note that I f instructs the LLM to make the question-answer pair highly specific to the information provided in s i .
+
+[Training Data Construction]
+Integration and reasoning of information. Beyond utilizing each single segment, we consider to generate question-answer pairs for information contained in two or more segments. Following the setting of the minimum information unit above, we split a full text C i into a set of 128-token segments [s i ], then generate the q i , a i and L i accordingly,
+
+[Training Data Construction]
+EQUATION
+
+[Training Data Construction]
+where I r instructs the LLM to generate a multi-hop question-answer pair that requires the information within at least two segments in learning rate and 3% warm-up steps. The training process is conducted on 16 nodes of 8x80G A100 GPUs with the full sharding strategy and cpu offload strategy implemented by pytorch FSDP (Zhao et al., 2023) . One entire training process (for a single FILM-7B model) consumes ∼300 GPU days.
+
+[This work introduces IN2 training to overcome the lost-in-the-middle problem. By applying IN2]
+training on the open-source model, our FILM-7B exhibits significant improvements on probing tasks and real-world long-context tasks while does not compromise the short-context performance. This is the Appendix of the paper: Make Your LLM Fully Utilize the Context.
+
+[D Implementation and Reasons for Segmentation]
+Algorithm 1 illustrates how we segment a raw text into ∼128-token segments. We set the ∼128-token segment as the minimum information unit due to the following consideration:
+
+[D Implementation and Reasons for Segmentation]
+• If the segment contains too few tokens (e.g., 16 tokens or 32 tokens), it might not contain enough information for asking a meaningful question.
+
+[D Implementation and Reasons for Segmentation]
+• If we set a large threshold for segmentation (e.g., 1024 tokens or 4096 tokens), most raw texts will just contain one segment11 , thus affecting the construction of QA pairs that require the integration and reasoning of information.
+
+[D Implementation and Reasons for Segmentation]
+• Moreover, we do not just use a full raw text to generate a question with GPT-4, as we are concerned about whether GPT-4 will also more focus on the head and the tail of the text. It could result in a local bias for training: the answers are always placed on the boundaries between two segments containing consecutive information text. Based on the above considerations, we use the ∼128-token segment. Due to the high cost on data generation, we do not conduct further ablations on this design choice. 
+
+[H Training Examples for IN2 Training]
+Example 1: Fine-Grained Information Awareness (1)
+
+[H Training Examples for IN2 Training]
+Segment:
+
+[H Training Examples for IN2 Training]
+Last summer I took a cross-country road trip with a group of people driving different types of electric vehicles.
+
+[H Training Examples for IN2 Training]
+It was an amazing experience, and our trip, our adventures, and our misadventures were portrayed in the documentary Kick Gas. That experience gave me the idea to take my own road trip to experience the freedom of traveling alone on an electric motorcycle. My goals were simple: ride the great motorcycle roads of America, meet other electric motorcycle riders, and visit friends ...
+
+[I Prompts For Data Generation and Training]
+Example 7: Prompt For Equation 1Generate one question and the answer from the given context. The question should be highly specific to the information provided in the context. It should not be a general question that suits any context. Rules to follow when generate the question: 1. The question should be fully answerable from information present in given context. 2. Make sure the question is clear and unambiguous.
+
+[I Prompts For Data Generation and Training]
+3. Phrases like 'based on the provided context', 'according to the context', etc, are not allowed to appear in the question.
+
+[I Prompts For Data Generation and Training]
+Rules to follow when generate the answer:
+
+[I Prompts For Data Generation and Training]
+1. The answer must use the information provided in the context. 2. Do not just copy words from the context. Answer the question in your own words.
+
+[I Prompts For Data Generation and Training]
+### Context ###: si ### Question ###: {completion}
+
+[I Prompts For Data Generation and Training]
+Example 8: Prompt For Equation 2Generate one question and the answer from the given context. The context contains several pieces. Answering the question should require the reader to make multiple logical connections or inferences using **at least two pieces**.
+
+[I Prompts For Data Generation and Training]
+Rules to follow when generate the question: 1. The question should be fully answerable from information present in given context. 2. Make sure the question is clear and unambiguous.
+
+[I Prompts For Data Generation and Training]
+3. Phrases like 'based on the provided context', 'according to the context', etc, are not allowed to appear in the question.
+
+[I Prompts For Data Generation and Training]
+Rules to follow when generate the answer:
+
+[I Prompts For Data Generation and Training]
+1. The answer must use the information provided in the context. Output: ai

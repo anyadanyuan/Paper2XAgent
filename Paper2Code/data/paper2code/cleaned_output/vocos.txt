@@ -1,0 +1,56 @@
+[Abstract]
+Recent advancements in neural vocoding are predominantly driven by Generative Adversarial Networks (GANs) operating in the time-domain. While effective, this approach neglects the inductive bias offered by time-frequency representations, resulting in reduntant and computionally-intensive upsampling operations. Fourierbased time-frequency representation is an appealing alternative, aligning more accurately with human auditory perception, and benefitting from well-established fast algorithms for its computation. Nevertheless, direct reconstruction of complexvalued spectrograms has been historically problematic, primarily due to phase recovery issues. This study seeks to close this gap by presenting Vocos, a new model that directly generates Fourier spectral coefficients. Vocos not only matches the state-of-the-art in audio quality, as demonstrated in our evaluations, but it also substantially improves computational efficiency, achieving an order of magnitude increase in speed compared to prevailing time-domain neural vocoding approaches. The source code and model weights have been open-sourced at https://github.com/gemelo-ai/vocos.
+
+[CHALLENGES OF MODELING PHASE SPECTRUM]
+Despite considerable advancements in time-domain audio synthesis, efforts to generate spectral representations of signals have been relatively limited. While it's possible to perfectly reconstruct the original signal from its Short-Time Fourier Transform (STFT), in many applications, only the magnitude of the STFT is utilized, leading to inherent information loss. The magnitude of the STFT provides a clear understanding of the signal by indicating the amplitude of different frequency components throughout its duration. In contrast, phase information is less intuitive and its manipulation can often yield unpredictable results.
+
+[CHALLENGES OF MODELING PHASE SPECTRUM]
+Modeling the phase distribution presents challenges due to its intricate nature in the time-frequency domain. Phase spectrum exhibits a periodic structure causing wrapping around the principal values within the range of (-π, π] (Figure 1 ). Furthermore, the literature does not provide a definitive answer regarding the perceptual importance of phase-related information in speech (Wang & Lim, 1982; Paliwal et al., 2011) . However, improved phase spectrum estimates have been found to minimize perceptual impairments (Saratxaga et al., 2012) . Researchers have explored the use of deep learning for directly modeling the phase spectrum, but this remains a challenging area (Williamson et al., 2015) .
+
+[MODEL]
+Backbone Vocos adapts ConvNeXt (Liu et al., 2022) as the foundational backbone for the generator. It first embeds the input features into a hidden dimensionality and then applies a stack of 1D convolutional blocks. Each block consists of a depthwise convolution, followed by an inverted bottleneck that projects features into a higher dimensionality using pointwise convolution. GELU (Gaussian Error Linear Unit) activations are used within the bottleneck, and Layer Normalization is employed between the blocks.
+
+[MODEL]
+Head Fourier transform of real-valued signals is conjugate symmetric, so we use only a single side band spectrum, resulting in n f f t /2 + 1 coefficients per frame. As we parameterize the model to output phase and magnitude values, hidden-dim activations are projected into a tensor h with n f f t + 2 channels and splitted into:
+
+[MODEL]
+m, p = h[1 : (n f f t /2 + 1)], h[(n f f t /2 + 2) : n]
+
+[MODEL]
+To represent the magnitude, we apply the exponential function to m: M = exp(m).
+
+[MODEL]
+We map p onto the unit circle by calculating the cosine and sine of p to obtain x and y, respectively:
+
+[MODEL]
+x = cos(p) y = sin(p)
+
+[MODEL]
+Finally, we represent complex-valued coefficients as: STFT = M • (x + jy).
+
+[MODEL]
+Importantly, this simple formulation allows to express phase angle φ = atan2(y, x) for any real argument p, and it ensures that φ is correctly wrapped into the desired range (-π, π].
+
+[MODEL]
+Discriminator We employ the multi-period discriminator (MPD) as defined by Kong et al. (2020) , and multi-resolution discriminator (MRD) (Jang et al., 2021) .
+
+[LOSS]
+Following the approach proposed by Kong et al. (2020) , the training objective of Vocos consists of reconstruction loss, adversarial loss and feature matching loss. However, we adopt a hinge loss formulation instead of the least squares GAN objective, as suggested by Zeghidour et al. (2021) :
+
+[LOSS]
+ℓ G ( x) = 1 K k max (0, 1 -D k ( x)) ℓ D (x, x) = 1 K k max (0, 1 -D k (x)) + max (0, 1 + D k ( x))
+
+[LOSS]
+where D k is the kth subdiscriminator. The reconstruction loss, denoted as L mel , is defined as the L1 distance between the mel-scaled magnitude spectrograms of the ground truth sample x and the synthesized sample: x: L mel = ∥M(x) -M( x)∥ 1 . The feature matching loss, denoted as L f eat is calculated as the mean of the distances between the lth feature maps of the kth subdistriminator:
+
+[LOSS]
+L f eat = 1 KL k l D l k (x) -D l k ( x) 1 .
+
+[INFERENCE SPEED]
+Our inference speed benchmarks were conducted using an Nvidia Tesla A100 GPU and an AMD EPYC 7542 CPU. The code was implemented in Pytorch, with no hardware-specific optimizations. The forward pass was computed using a batch of 16 samples, each one second long. Table 6 presents the synthesis speed and model footprint of Vocos in comparison to other models.
+
+[INFERENCE SPEED]
+Vocos showcases notable speed advantages compared to other models, operating approximately 13 times faster than HiFi-GAN and nearly 70 times faster than BigVGAN. This speed advantage is particularly pronounced when running without GPU acceleration. This is primarily due to the use of the Inverse Short-Time Fourier Transform (ISTFT) algorithm instead of transposed convolutions. We also evaluate a variant of Vocos that utilizes ResBlock's dilated convolutions instead of ConvNeXt blocks. Depthwise separable convolutions offer an additional speedup when executed on a GPU. The results demonstrate that the proposed vocoder matches state-of-the-art audio quality while effectively mitigating periodicity issues commonly observed in time-domain GANs. Importantly, Vocos provides a significant computational efficiency advantage over traditional time-domain methods by utilizing inverse fast Fourier transform for upsampling.
+
+[INFERENCE SPEED]
+Overall, the findings of this study contribute to the advancement of neural vocoding techniques by incorporating the benefits of Fourier-based time-frequency representations. The open-sourcing of the source code and model weights allows for further exploration and application of the proposed vocoder in various audio processing tasks.

@@ -1,0 +1,97 @@
+[Abstract]
+Parametric dimensionality reduction methods have gained prominence for their ability to generalize to unseen datasets, an advantage that traditional approaches typically lack. Despite their growing popularity, there remains a prevalent misconception among practitioners about the equivalence in performance between parametric and non-parametric methods. Here, we show that these methods are not equivalent -parametric methods retain global structure but lose significant local details. To explain this, we provide evidence that parameterized approaches lack the ability to repulse negative pairs, and the choice of loss function also has an impact. Addressing these issues, we developed a new parametric method, ParamRepulsor, that incorporates Hard Negative Mining and a loss function that applies a strong repulsive force. This new method achieves state-of-the-art performance on local structure preservation for parametric methods without sacrificing the fidelity of global structural representation. Our code is available at https://github.com/hyhuang00/ParamRepulsor. * Equal contribution.
+38th Conference on Neural Information Processing Systems (NeurIPS 2024).
+We provide essential background on Neighborhood Embedding (NE) methods and notation. We notate the high dimensional data as X = x 1 . . . x n ∈ R D , where n is the number of data points, and D is the dimension. NE algorithms aim to preserve predefined high-dimensional similarities within a low-dimensional embedding to reveal the local and global structure of X. Specifically,
+
+[C Visualizations from all DR methods]
+In this section we provide visualizations for the output of all DR methods. Fig. 7 visualizes the output of ParamRepulsor. Notably, ParamRepulsor performs well on all datasets and achieves state-of-the-art on both local and global structure preservation. On MNIST, ParamRepulsor is the only parametric algorithm that separates the clusters with clear boundaries. Compared to nonparametric algorithms, ParamRepulsor has better global structure preservation, as it is able to keep the structure of the mammoth on Mammoth dataset, and keep the structure of the hierarchy on the Hierarchy dataset. 
+
+[D Proof that PaCMAP's loss follows NEG]
+Recall that the NEG loss follows the form
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+)
+
+[D Proof that PaCMAP's loss follows NEG]
+where m is the number of negative samples of each batch and q θ is the similarity function defined in the low dimensional space. Now, we consider the PaCMAP loss. While the PaCMAP loss optimization process involves three stages with different emphasis on the loss terms, the first two stages are essentially equivalent to the early exaggeration used in t-SNE and UMAP [13] . Therefore we consider only the last stage of the PaCMAP optimization process that involves only the NN and FP losses:
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+)
+
+[D Proof that PaCMAP's loss follows NEG]
+While PaCMAP samples the repulsion using a pre-defined set of further pairs, the further pairs themselves are uniformly sampled from all the points that are not nearest neighbors. The number of neighbors are usually tiny compared to the size of the dataset. In our experiments, adding the nearest neighbors back to the further pairs candidate set does not generate any major impact to the datasets. Therefore, here we consider it to be essentially the same as sampling from ij ∈ E.
+
+[D Proof that PaCMAP's loss follows NEG]
+Since the purpose of the loss function is to find θ that minimizes it, applying any affine transformation will not affect the optimum. Recall that in PaCMAP, the set F P is m times of the size of N N . Thus, we have:
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+Due to the different choices of normalizing constant in the NN loss and the FP loss, the PaCMAP actually utilizes a different kernel to model the similarity between the NN and FPs. Solving for the functions q N N θ and q F P θ , we have the result:
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+)
+
+[D Proof that PaCMAP's loss follows NEG]
+E Proof that the Mid-Near Hard Negative False Negative Rate converges to 0 quadratically
+
+[D Proof that PaCMAP's loss follows NEG]
+For simplicity, we consider a dataset of size n + 1, so that each point will sample from a pool of n points. For each point, we consider its k = 10 nearest neighbors as its positive points, and the rest of the points as negative points. Now, we consider the mid-near sample process. Recall that the mid-near point samples the second closest point from a pool of 6 points. Denote the event that a mid-near point being a false negative as A. A essentially means that there exist more than one point from the k nearest neighbors being sampled. Therefore, we know that Ā means there is at most one point in the samples comes from the k nearest neighbors, which essentially gives us:
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+All points sampled are not NN
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+Only one point comes from NN (19)
+
+[D Proof that PaCMAP's loss follows NEG]
+EQUATION
+
+[D Proof that PaCMAP's loss follows NEG]
+)
+
+[D Proof that PaCMAP's loss follows NEG]
+It follows that lim n→∞ P( Ā) = 1, and it converges at the rate of O( 1 n 2 ). Because P(A) = 1 -P( Ā), we know that P(A) also converges to 0 at the rate of O( 1n 2 ). This is much faster than the uniform sampling. For uniform sampling, the false negative probability is always 10 n , which is linear. This is particularly bad for DR algorithms: the number of negative samples is usually linear w.r.t. n. Fig. 21 illustrates the probability of false negatives sampled from a dataset. We found that as long as we have more than 1330 points in our dataset, mid-near sampling can generate less false negatives than uniform sampling. This is a particularly small number to achieve in the era of big data. In order to faithfully reflect the impact of parametrization on the embedding, our baseline parametric PaCMAP is written in a way to keep as much detail unchanged from the non-parametric version.
+
+[D Proof that PaCMAP's loss follows NEG]
+ParamRepulsor implementation is written based on the Parametric PaCMAP, but many changes are made to enhance the performance on local structure.
+
+[D Proof that PaCMAP's loss follows NEG]
+Network Structure. In line with existing parametric DR method implementation [17, 18] , we parametrize the projector with a shallow Multi-layer Perceptron (MLP). Unless otherwise specified, we utilize a network of three hidden layers with [100, 100, 100] neurons. ParamRepulsor utilizes SiLU as the activation function, whereas ParamPaCMAP utilizes ReLU just as the other methods.
+
+[D Proof that PaCMAP's loss follows NEG]
+Besides utilizing basic MLP as the projector, both ParamRepulsor and ParamPaCMAP can use other network structures. We provide implementation for MLP with residual connection, convolutional neural networks, We also allow using an embedding layer as the projector so that the network behavior is similar to non-parametric version.
+
+[D Proof that PaCMAP's loss follows NEG]
+Initialization. As a non-parametric algorithm, PaCMAP directly optimizes the low-dimensional embedding, and utilizes the first two principal components of the data as its initialization. After the introduction of the neural network projector, we can no longer use this initialization. For both ParamRepulsor and ParamPaCMAP, we initialize all our neural network parameters with Kaiming Initialization [61] .
+
+[D Proof that PaCMAP's loss follows NEG]
+Optimization Schedule. Since our neural network optimization schedule is performed by minibatch stochastic gradient descent, we are unable to optimize the full embedding at once as in non-parametric PaCMAP. Therefore, at each step, we sample a batch of points, and find NN, MN, and FP points for each element in the sample.
+
+[D Proof that PaCMAP's loss follows NEG]
+All the points sampled will be sent to the neural network to calculate the standard PaCMAP loss. We adopt the Adam Optimizer [62] with β = (0.9, 0.999) and a batch size of 1024. Refer to the algorithm below for more details.
+
+[H.1 Additional Analysis on Distance Distribution in Embedding]
+Fig. 22 provides a comprehensive analysis over distances between different kinds of pairs, generated by multiple DR algorithms. We can see that all parametric methods generate a shorter FP distance compared against their non-parametric counterpart. MN pairs, though should be classified as FPs, tend to be harder to optimize, resulting in a shorter distance on average. 

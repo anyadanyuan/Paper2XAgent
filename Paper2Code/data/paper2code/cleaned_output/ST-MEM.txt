@@ -1,0 +1,71 @@
+[Abstract]
+Electrocardiograms (ECG) are widely employed as a diagnostic tool for monitoring electrical signals originating from a heart. Recent machine learning research efforts have focused on the application of screening various diseases using ECG signals. However, adapting to the application of screening disease is challenging in that labeled ECG data are limited. Achieving general representation through self-supervised learning (SSL) is a well-known approach to overcome the scarcity of labeled data; however, a naive application of SSL to ECG data, without considering the spatial-temporal relationships inherent in ECG signals, may yield suboptimal results. In this paper, we introduce ST-MEM (Spatio-Temporal Masked Electrocardiogram Modeling), designed to learn spatiotemporal features by reconstructing masked 12-lead ECG data. ST-MEM outperforms other SSL baseline methods in various experimental settings for arrhythmia classification tasks. Moreover, we demonstrate that ST-MEM is adaptable to various lead combinations. Through quantitative and qualitative analysis, we show a spatio-temporal relationship within ECG data. Our code is available at https://github.com/bakqui/ST-MEM.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+In this section, we present ST-MEM, a self-supervision framework for general representation learning for ECG. This incorporates the spatio-temporal relationship, which leads to providing enhanced representation. An overview of our proposed method is depicted in Figure 3 .
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+Masked auto-encoder with spatio-temporal patchifying. We consider a pre-text task to reconstruct a randomly masked portion of the data. In particular, we adopt an auto-encoder-based reconstruction task, called MAE (He et al., 2022) . It consists of a vision transformer (ViT) encoder (Dosovitskiy et al., 2020 ) and a decoder with additional transformer blocks.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+Considering an ECG signal denoted as X ∈ R L×T with L leads and length T , each lth lead signal, represented as X l , is divided into non-overlapping patches defined as P atch l = {P atch l 1 , ..., P atch l n } ∈ R n×p . Here, n is determined by T /p, and p represents the size of each patch. We independently split each lead signal into spatio-temporal patches, as depicted in Figure 2 (c), resulting in a total of L × n patches for a single 12-lead ECG signal.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+The patches undergo linear projection to form patch embeddings of dimension D. They are added with a positional embedding, P os ∈ R D , to create a embedding sequence as Z = {Z 1 , ..., Z Ln } ∈ R L×n×D . This embedding sequence becomes the input for the encoder. Since self-attention operations are executed among temporal patches across different leads, the encoder explicitly learns the spatio-temporal relationship within the ECG data. In the pre-training phase, we randomly select indices of embeddings, which are denoted as a masked index set M. After masking the corresponding embeddings, the encoder only receives unmasked embeddings, {Z i } i̸ ∈M , where the number of unmasked embeddings is determined as Ln(1 -m) with a masking proportion m. We set the masking ratio to a value in [0, 1].
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+The encoded embeddings are fed to the decoder along with a learnable shared mask embedding, defined by M asked ∈ R D . This embedding is employed to reconstruct the patches of the M. The training objective is to minimize the discrepancy between the original raw signal values of the masked patches, {P atch i } i∈M ∈ R L×(nm)×p , and their corresponding reconstructions, { P atch i } i∈M . The loss function is defined as L SSL = 1 Lnm i∈M P atch i -P atch i .
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+Lead-wise shared decoder. Although spatio-temporal patchifying can have benefits in ECG representation learning, it can be detrimental without careful consideration, especially within the MAE framework. One drawback of spatio-temporal patchifying is that it simplifies the reconstruction task, allowing the decoder to access unmasked embeddings from different leads with identical temporal information. This ease of reconstruction can negatively impact the training of the encoder.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+To address this issue, we employ a straightforward approach by limiting the decoder to operate on only one lead. We configure the decoder to process the embedding sequence of each lead independently, ensuring that it does not make explicit use of embeddings from other leads during reconstruction. This intentional design choice introduces complexity to the task, motivating the encoders to effectively learn spatio-temporal representations. Additionally, we promote training efficiency by having patch embeddings of each lead share a single decoder.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+Lead indicating modules. Merely increasing the difficulty of the reconstruction task may not be sufficient to enable our encoders to learn spatial representations effectively. Specifically, our encoder and decoder may face challenges in differentiating the lead from which the embedding originates. To address this, we introduce additional modules aimed at enhancing the ability to distinguish between leads effectively.
+
+[SELF-SUPERVISED PRE-TRAINING WITH SPATIO-TEMPORAL MASKED AUTO-ENCODER]
+First, we add a lead-specific embedding, denoted as Lead ∈ R D , for every patch embedding. This lead embedding is a function of the originating lead of the patch embedding, ensuring that all patch embeddings originating from the same lead have the same lead embedding. Next, we insert an additional shared embedding, denoted as [SEP ] ∈ R D , which is added before and after each patch embedding sequence. These modules support the model to distinguish between patch embeddings from different leads (i.e., leading the model to learn the relationships between the different leads).
+
+[INTERPRETATION OF ST-MEM BY ANALYZING SELF-ATTENTIONS]
+By analyzing self-attention, we could observe that ST-MEM considers the ECG signal spatially and temporally. Figure 5 is an attention map for a single lead III query patch (i.e., red dashed box). Since lead III is spatially located in a frontal plane, the attention scores are generally high for limb leads. This phenomenon explains why the ECG representation is clustered in the frontal or horizontal plane. Moreover, from a temporal perspective, the patches show high attention scores if the signal shape is similar to the query patch in that the ECG signal contains a periodic rhythm. Overall, we could observe that ST-MEM incorporates both a spatial and temporal relationship of ECG signals.
+
+[INTERPRETATION OF ST-MEM BY ANALYZING SELF-ATTENTIONS]
+In addition, instead of patchifying temporally or spatially, the spatio-temporal patchifying can also benefit the cardiologist in diagnosing heart disease by analyzing the spatio-temporal self-attentions.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+While we reproduced pre-trained baselines for comparison with ST-MEM, it is important to note that the pre-trained models may exhibit slight variations due to heterogeneous experimental settings, including diverse datasets, backbone encoder models, and hyperparameters. To further explore this, we conduct additional experiments utilizing another pre-trained model, Contrastive Predictive Coding (CPC) (Mehari & Strodthoff, 2022) , which provides original pre-trained weights. As shown in Table 13 , our proposed approach, ST-MEM, demonstrates comparable performance to CPC. Moreover, in low-resource settings, certain baseline models like MLAE and MoCo v3 exhibit similar performance, emphasizing the comparability of our reproduced pre-trained models as baselines.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+Additionally, it is worth mentioning that the CPC model employed PTB-XL and CPSC2018 as pretrained datasets, whereas ST-MEM and other baselines treated these datasets as unseen datasets to validate the genuine performance of general ECG representation learning. Overall, we believe ST-MEM can provide general ECG representation to effectively solve diverse challenging tasks, e.g., diverse heart disease classification tasks, reduced lead settings, and low-resource settings. In MoCo v3 pre-training, positive pairs are made by employing eight straightforward time-series augmentations (Nonaka & Seita, 2020) :
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+1. Erase: Randomly setting the values of a chosen lead to 0.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+2. Flip: Randomly inverting the signal vertically.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+3. Drop: Randomly zeroing out signal values.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+4. Cutout: Selecting a random interval and setting its values to 0.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+5. Shift: Randomly shifting the signal temporally.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+6. Sine: Adding a sine wave to the entire signal.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+7. Partial sine: Adding a sine wave into a randomly selected interval.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+8. Partial white noise: Introducing white noise into a randomly chosen interval.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+However, certain augmentations, such as flip, shift, sine, and partial sine, may have a negative impact on the semantics of the ECG. Flipping an ECG can result in misalignment with standard lead systems; shifting can lead to a loss of temporal continuity; adding a sine wave or partial sine wave to an ECG may introduce distortion, altering the original morphology of the signal. Consequently, these changes can lead to the misinterpretation of the ECG, potentially affecting the accuracy of diagnoses and analyses. In terms of contrastive learning, the distortion of semantic information makes it inappropriate to define positive or negative pairs. Therefore, we pre-train MoCo v3 using the remaining four augmentations (erase, drop, cutout, and partial noise) and compared the results with experiments using the original eight augmentations.
+
+[B.1 COMPARISON OF EXISTING ECG PRE-TRAINED MODELS WITH ST-MEM]
+After pre-training on the same 12-lead dataset as outlined in the paper, we fine-tune the model on 12-lead ECGs from PTB-XL and CPSC2018, with the results presented in Table 14 . Using all eight augmentations performed better than using only four augmentations for all settings except for fine-tuning the model on PTB-XL. A critical point emphasized here is the challenge of selecting augmentations when working with ECG signals. This complexity highlights our preference for generative learning (masking and reconstructing) over contrastive learning which needs to select and use proper augmentations.

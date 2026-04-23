@@ -1,0 +1,71 @@
+[Abstract]
+Deep neural networks for image super-resolution (ISR) have shown significant advantages over traditional approaches like the interpolation. However, they are often criticized as 'black boxes' compared to traditional approaches with solid mathematical foundations. In this paper, we attempt to interpret the behavior of deep neural networks in ISR using theories from the field of signal processing. First, we report an intriguing phenomenon, referred to as 'the sinc phenomenon.' It occurs when an impulse input is fed to a neural network. Then, building on this observation, we propose a method named Hybrid Response Analysis (HyRA) to analyze the behavior of neural networks in ISR tasks. Specifically, HyRA decomposes a neural network into a parallel connection of a linear system and a non-linear system and demonstrates that the linear system functions as a low-pass filter while the non-linear system injects high-frequency information. Finally, to quantify the injected highfrequency information, we introduce a metric for image-to-image tasks called Frequency Spectrum Distribution Similarity (FSDS). FSDS reflects the distribution similarity of different frequency components and can capture nuances that traditional metrics may overlook. Code, videos and raw experimental results for this paper can be found in: https://github.com/RisingEntropy/LPFInISR.
+
+[Super Resolution Using Neural Networks]
+Recent review articles in ISR include fixed-scale superresolution (Yang et al., 2019) and arbitrary-scale superresolution review (Liu et al., 2023) . There are various architectures of mainstream ISR backbone networks, including CNN-style backbones (Ahn et al., 2018; Hui et al., 2019; Lim et al., 2017; Zhang et al., 2018b; c) , transformer-style backbones (Liang et al., 2021; Wang et al., 2023) and GANstyle backbone networks (Wang et al., 2018) , etc. Based on these backbones, researchers have proposed quantitative modules with various functions. For example, ArbSR (Wang et al., 2021) (Bevilacqua et al., 2012) , Urban100 (Huang et al., 2015) , Flickr2K (Young et al., 2014) , SCI1K (Yang et al., 2021) , DIV2K (Agustsson & Timofte, 2017) , etc. We evaluate the effectiveness of our proposed FSDS metric on DIV2K dataset. The large size of the DIV2K dataset contributes to increased reliability in our conclusions. in the literature (Xu, 2018; 2020; Xu et al., 2019; Zhang et al., 2019) . Notably, Xu et al. (Xu et al., 2019) propose the Frequency-Principle, claiming its relevance to both convolutional neural networks (CNNs) and fully-connected deep neural networks. According to their proposition, these networks inherently adhere to the Frequency-Principle, wherein training data is systematically acquired in a sequential manner, progressing from low to high frequency. Unlike previous approaches these approaches, HyRA distinguishes itself by employing impulse response to probe the potential mechanisms of deep neural networks in the context of the ISR task.
+
+[Method]
+4.1. Hybrid Response Analysis (HyRA)
+
+[Method]
+In this section, we describe the proposed Hybrid Response Analysis (HyRA), which treats the neural network as a combination of a linear system and a non-linear system. Through the impulse response, we can calculate a linear time invariant (LTI) system's output from any input using the convolution operation (see Appx. B.1). However, since neural networks are nonlinear systems, we cannot apply convolution to analyze them. To further explore the network features, we need to split it into a linear system and a non-linear system, i.e., HyRA. The core concept HyRA is illustrated in Fig. 3 . We denote an ISR network as N (I), where I is the input image. N (I) is a non-linear system that can be expressed as the sum of a linear system and a non-linear system: In the equation, H(I) represents a linear system, and G(I) represents a non-linear system. Without constraints, such a representation is meaningless because H(I) can be arbitrarily chosen, leading to an infinite variety of representations with the same form but different meanings. To give meaning to this representation, we introduce a constraint: the impulse response of G(I) is zero. With this constraint, both H(I) and G(I) can be uniquely determined. Lemma 4.1 demonstrates that under this constraint, N (I) can still be expressed in the form of Eq. 3. This straightforward method is the essence of HyRA.
+
+[Method]
+EQUATION
+
+[Method]
+For the ISR task, there is a distinctive property known as a 'spatially invariant system' (Miller et al., 1992) associated with it. Consider the definition of time-invariant systems as mentioned in Appx. B.1, we can naturally extend the concept of in-variance from one-dimensional to twodimensional space and the definition of spatially invariant systems is: when the input is I x,y , the output is G(I x,y ) = O(x, y); when the input becomes I ′ = I x-x0,y-y0 , the output should be G(I ′ ) = O(x -x 0 , y -y 0 ). For convolution based architectures, we can easily prove its spatial invariance (see the proof below). For transformer-based architectures, we can still use experiments to prove the spatial invariance (see Fig. 15 ).
+
+[Method]
+Proof. A convolution operation can be defined as:
+
+[Method]
+Conv i,j = p,q I i-p,j-1 K p,q .
+
+[Method]
+Then, the shifting operation can be defined as:
+
+[Method]
+Sh(i, j) → (i + k, j + l).
+
+[Method]
+Combine these two, we then have:
+
+[Method]
+Conv Sh(i,j) = Conv i+k,j+l = p,q I i+k-p,j+l-q K p,q = Sh( I i-p,j-q K p,q ) = Sh(Conv i,j ).
+
+[Method]
+This is the invariance of a single convolution layer, and still holds for more layers.
+
+[Method]
+According to HyRA, when we input a Dirac δ signal to the neural network, we can get the impulse response of the linear system (please recall Appx. B.1), denoted as H(δ).
+
+[Method]
+For any input I, the response of the linear space invariant system can be obtained by convolving the input with the obtained impulse response, which can be expressed as:
+
+[Method]
+EQUATION
+
+[Method]
+where * means the convolution operation. Although the response of the non-linear component cannot be directly computed, if we obtain the final output of the neural network, the non-linear part can be deduced by subtracting the response of the linear component from the final output, namely the non-linear response can be computed as:
+
+[Method]
+EQUATION
+
+[Method]
+Lemma 4.1. A neural network N (I) can be expressed as a combination of a linear system H(I) and a non-linear system with an impulse response of zero, i.e., N (I) = H(I) + G(I), where G(δ) = 0. Here, δ represents the Dirac delta function.
+
+[Method]
+Proof.
+
+[Method]
+1) When G(δ) = 0, the conclusion holds.
+
+[Method]
+2
+
+[Method]
+) When G(δ) ̸ = 0, Let H 1 (I) = H(I) + G(δ) * I and G 1 (I) = G(I) -G(δ) * I.
+
+[Method]
+In this case, H 1 (I) remains a linear system and G ′ (I) remains a non-linear system. The equation N (I) = H 1 (I) + G 1 (I) holds, and it satisfies G 1 (δ) = 0.

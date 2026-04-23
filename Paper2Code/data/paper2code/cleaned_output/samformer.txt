@@ -1,0 +1,47 @@
+[Abstract]
+Transformer-based architectures achieved breakthrough performance in natural language processing and computer vision, yet they remain inferior to simpler linear baselines in multivariate long-term forecasting. To better understand this phenomenon, we start by studying a toy linear forecasting problem for which we show that transformers are incapable of converging to their true solution despite their high expressive power. We further identify the attention of transformers as being responsible for this low generalization capacity. Building upon this insight, we propose a shallow lightweight transformer model that successfully escapes bad local minima when optimized with sharpness-aware optimization. We empirically demonstrate that this result extends to all commonly used realworld multivariate time series datasets. In particular, SAMformer surpasses current state-ofthe-art methods and is on par with the biggest foundation model MOIRAI while having significantly fewer parameters. The code is available at https://github.com/romilbert/samformer.
+
+[Proposed Approach]
+Notations. We represent scalar values with regular letters (e.g., parameter λ), vectors with bold lowercase letters (e.g., vector x), and matrices with bold capital letters (e.g., matrix M). We denote by M ⊤ the transpose of M and likewise for vectors. The rank of a matrix M is denoted by rank(M), and its Frobenius norm by ∥M∥ F . We let ñ = min{n, m}, and denote by ∥M∥ * = ñ i=1 σ i (M) the nuclear norm of M with σ i (M) being its singular values, and by ∥M∥ 2 = σ max (M) its spectral norm. The identity matrix of size n × n is denoted by I n . The notation M ≽ 0 indicates that M is positive semi-definite.
+
+[Transformer's Loss Landscape]
+Intuition. In the previous section, we concluded that the attention was at fault for the poor generalization of Transformer observed above. To develop our intuition behind this phenomenon, we plot in Figure 3a the atten-tion matrices at different epochs of training. We can see that the attention matrix is close to the identity matrix right after the very first epoch and barely changes afterward, especially with the softmax amplifying the differences in the matrix values. It shows the emergence of attention's entropy collapse with a full-rank attention matrix, which was identified in Zhai et al. (2023) as one of the reasons behind the hardness of training transformers. This work also establishes a relationship between entropy collapse and the sharpness of the transformers' loss landscape which we confirm in Figure 3b (a similar behavior is obtained on real data in Figure 5a . The Transformer converges to a sharper minimum than the Random Transformer while having a significantly lower entropy (the attention being fixed at initialization for the latter, its entropy remains constant along training). These pathological patterns suggest that the Transformer fails because of the entropy collapse and the sharpness of its training loss. In the next paragraph, we investigate the existing solutions in the literature to alleviate those issues.
+
+[Transformer's Loss Landscape]
+Existing solutions. Recent studies have demonstrated that the loss landscape of transformers is sharper compared to other residual architectures (Chen et al., 2022; Zhai et al., 2023) . This may explain training instability and subpar performance of transformers, especially when trained on small-scale datasets. The sharpness of transformers was observed and quantified differently: while Chen et al.
+
+[Transformer's Loss Landscape]
+(2022) computes λ max , the largest eigenvalue of the loss function's Hessian, Zhai et al. (2023) gauges the entropy of the attention matrix to demonstrate its collapse with high sharpness. Both these metrics are evaluated, and their results are illustrated in Figure 3b . This visualization confirms our hypothesis, revealing both detrimental phenomena at once. On the one hand, the sharpness of the transformer with fixed attention is orders of magnitude lower than the sharpness of the transformer that converges to the identity attention matrix. On the other hand, the entropy of the transformer's attention matrix is dropping sharply along the epochs when compared to the initialization.
+
+[Transformer's Loss Landscape]
+To identify an appropriate solution allowing a better generalization performance and training stability, we explore both remedies proposed by Chen et al. (2022) and Zhai et al. (2023) . The first approach involves utilizing the recently proposed sharpness-aware minimization framework (Foret et al., 2021) which replaces the training objective L train of Eq. (1) by
+
+[Transformer's Loss Landscape]
+L SAM train (ω) = max ∥ϵ∥<ρ L train (ω + ϵ) ,
+
+[Transformer's Loss Landscape]
+where ρ > 0 is an hyper-parameter (see Remark D.1 of Appendix D), and ω are the parameters of the model. More details on SAM can be found in Appendix D.2. The second approach involves reparameterizing all weight matri-ces with spectral normalization and an additional learned scalar, a technique termed σReparam by Zhai et al. (2023) .
+
+[Transformer's Loss Landscape]
+More formally, we replace each weight matrix W as follows
+
+[Transformer's Loss Landscape]
+EQUATION
+
+[Transformer's Loss Landscape]
+where γ ∈ R is a learnable parameter initialized at 1.
+
+[Transformer's Loss Landscape]
+The results depicted in Figure 1 highlight our transformer's successful convergence to the desired solution. Surprisingly, this is only achieved with SAM, as σReparam doesn't manage to approach the optimal performance despite maximizing the entropy of the attention matrix. In addition, one can observe in Figure 3b that the sharpness with SAM is several orders of magnitude lower than the Transformer while the entropy of the attention obtained with SAM remains close to that of a base Transformer with a slight increase in the later stages of the training. It suggests that entropy collapse as introduced in Zhai et al. ( 2023) is benign in this scenario.
+
+[Transformer's Loss Landscape]
+To better understand the failure of σReparam, it can be useful to recall how Eq. ( 5) was derived. Zhai et al. (2023) departed from a tight lower bound on the attention entropy and showed that it increases exponentially fast when (Zhai et al., 2023 , see Theorem 3.1). Eq. ( 5) was proposed as a simple way to minimize this quantity. In the case of channel-wise attention, however, it can be shown that this has a detrimental effect on the rank of the attention matrix, which would consequently exclude certain features from being considered by the attention mechanism. We formalize this intuition in the following Proposition 2.2, where we consider the nuclear norm, a sum of the singular values, as a smooth proxy of the algebraic rank, which is a common practice (Daneshmand et al., 2020; Dong et al., 2021) . The proof is deferred to Appendix E.3. Proposition 2.2 (Upper bound on the nuclear norm). Let X ∈ R D×L be an input sequence. Assuming
+
+[Transformer's Loss Landscape]
+∥W Q W ⊤ K ∥ 2 is minimized
+
+[Transformer's Loss Landscape]
+W Q W ⊤ K = W K W ⊤ Q ≽ 0, we have ∥XW Q W ⊤ K X ⊤ ∥ * ≤ ∥W Q W ⊤ K ∥ 2 ∥X∥ 2 F .
+
+[Transformer's Loss Landscape]
+Note that the assumption made above holds when W Q = W K and has been previously studied by Kim et al. (2021a) . The theorem confirms that employing σReparam to decrease ∥W Q W ⊤ K ∥ 2 reduces the nuclear norm of the numerator of attention matrix defined by Eq. (4). While the direct link between matrix rank and this nuclear norm does not always hold, nuclear norm regularization is commonly used to encourage a low-rank structure in compressed sensing (Recht et al., 2010; Recht, 2011; Candès & Recht, 2012) . Although Proposition 2.2 cannot be directly applied to the attention matrix A(X), we point out that in the extreme case when σReparam leads to the attention scores XW Q W ⊤ K X ⊤ to be rank-1 with identical rows as studied in (Anagnostidis et al., 2022) , that the attention matrix stays rank-1 after application of the row-wise softmax. Thus, σReparam may induce a collapse of the attention rank that we empirically observe in terms of nuclear norm in Figure 7 . With these findings, we present a new simple transformer model with high performance and training stability for multivariate time series forecasting.

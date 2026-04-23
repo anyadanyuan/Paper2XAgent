@@ -1,0 +1,68 @@
+[Abstract]
+Aligning large language models (LLMs) with human values and intents critically involves the use of human or AI feedback. While dense feedback annotations are expensive to acquire and integrate, sparse feedback presents a structural design choice between ratings (e.g., score Response A on a scale of 1-7) and rankings (e.g., is Response A better than Response B?). In this work, we analyze the effect of this design choice for the alignment and evaluation of LLMs. We uncover an inconsistency problem wherein the preferences inferred from ratings and rankings significantly disagree 60% for both human and AI annotators. Our subsequent analysis identifies various facets of annotator biases that explain this phenomena such as human annotators would rate denser responses higher while preferring accuracy during pairwise judgments, for a particular comparison instance. To our surprise, we observe that the choice of feedback protocol has a significant effect on the evaluation of aligned LLMs. In particular, we find that LLMs that leverage rankings data for alignment (say model X) are preferred over those that leverage ratings data (say model Y), with a rank-based evaluation protocol (is X/Y's response better than reference response?) but not with a rating-based evaluation protocol (score Rank X/Y's response on a scale of 1-7). Our findings thus shed light on critical gaps in methods for evaluating the real-world utility of language models and their strong dependence on the feedback protocol used for alignment. Our code and data are available at https://github.com/Hritikbansal/sparse_feedback.
+
+[REWARD MODELING]
+We describe the training objectives for the reward models trained on ratings and rankings feedback.
+
+[REWARD MODELING]
+Regression Reward Model. Here, we first normalize the ratings (between 1-7) a(x i , y (j) i ) for a given instruction in the dataset D A into score a ′ (x i , y (j) i ) between 0-1. Subsequently, we train a regression model f θ (x i , y (j) i ) where (x i , y (j) i ) ∈ D A which outputs a scalar. The regression reward model is trained with the following objective:
+
+[REWARD MODELING]
+EQUATION
+
+[REWARD MODELING]
+where σ(.) is the sigmoid function which projects any scalar value to a range between 0-1.
+
+[REWARD MODELING]
+Negative Log-Likelihood (NLL) Reward Model. To train a reward model from the pairwise feedback data D R , prior works [26] train a reward model g θ (x, y) which outputs a scalar value for a given response y for the instruction x. Firstly, we filter the instances that receive r(x i , y
+
+[REWARD MODELING]
+EQUATION
+
+[REWARD MODELING]
+i ) ='equal' from D R to get a new subset of data S R since one cannot learn from such examples in the relative reward modeling objective. For the remaining instances, the negative log-likelihood objective might be applied as follows:
+
+[REWARD MODELING]
+EQUATION
+
+[REWARD MODELING]
+where y a and y b are the preferred and unpreferred responses respectively from the pair of candidate responses (y
+
+[REWARD MODELING]
+i ) as decided by the value of r(x i , y
+
+[REWARD MODELING]
+i ) in the dataset S R . We provide more details on the choice of f θ , g θ , and the training setup in Appendix §G.
+
+[REWARD MODELING]
+Best-of-n Policy. In our work, we use the Best-of-n policy (rejection sampling) P n that leverages the trained reward model to boost the performance of the SFT model towards human preferences. In this method, we simply sample n times from the SFT model from a given instruction, and utilize the reward models (regression or NLL) to score the set of n responses. The final output of the policy is the response that achieves the highest score under the trained reward model. Formally the Best-of-n policy that leverages the ratings reward model f θ ,
+
+[REWARD MODELING]
+EQUATION
+
+[REWARD MODELING]
+i , . . . , y
+
+[REWARD MODELING]
+EQUATION
+
+[REWARD MODELING]
+where m = argmax j f θ (x i , y (j) i ), x i is the input instructions, and y (j) i is j th response from the n candidate responses sampled from the SFT model p θ . Here, our approach can use any other RL algorithm such as PPO used for model alignment [26] or a mix of rejection sampling and PPO [38] . We focus on rejection sampling due to its simplicity, and robust performance in comparison to other RL algorithms as noted by prior works [23, 48, 11] .
+
+[Model]
+Inconsistency ChatGPT-3.5-Turbo-Temperature=0 (Default=Ours) 58% ChatGPT-3.5-Turbo-Temperature=0.5 56% ChatGPT-3.5-Turbo-0613 54% GPT-4 50%
+
+[Model]
+Table 4 : Inconsistency analysis with varying AI annotators.
+
+[Model]
+The standard error for the above numbers is 4% with 95% confidence. We find that all the model choices suffer from the inconsistency problem. This indicates that our results are not restricted by the choice of the AI annotator, and are indeed observable in different models too.
+
+[K TRAINING SETTINGS]
+We train the reward models on the rankings and ratings feedback data for 5 epochs with early stopping at the end of every epoch. We use the validation loss for early stopping. We train the reward models on a single Nvidia RTX A6000 GPU with 48GB VRAM.
+
+[K TRAINING SETTINGS]
+The reward models optimized using equation 2 are trained with an effective batch size = 16 where the batch size = 4 and the number of gradient accumulation steps = 4. Here, each batch contains all the pairs of candidate responses for a given instruction. Since we have 5 candidate responses for a given instruction in the feedback data, we get 10 pairs of candidate responses (5 choose 2) in a batch. The reward models optimized using equation 1 are trained with an effective batch size = 64 where the batch size = 16 and the number of gradient accumulation steps = 4.
+
+[K TRAINING SETTINGS]
+Both the reward models use the AdamW optimizer [21] with a linear warmup of 100 steps to a maximum learning rate followed by a cosine decay. We perform a hyperparameter search over {1e -4, 1e -5, 1e -6} for maximum learning rate. We find that 1e -4 for Alpaca-LoRA reward model architecture. We also apply a weight decay of 0.001 to all the reward models and train them at fp16 precision. 

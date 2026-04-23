@@ -1,0 +1,53 @@
+[Abstract]
+Offline reinforcement learning (RL) has attracted much attention due to its ability in learning from static offline datasets and eliminating the need of interacting with the environment. Nevertheless, the success of offline RL relies heavily on the offline transitions annotated with reward labels. In practice, we often need to hand-craft the reward function, which is sometimes difficult, labor-intensive, or inefficient. To tackle this challenge, we set our focus on the offline imitation learning (IL) setting, and aim at getting a reward function based on the expert data and unlabeled data. To that end, we propose a simple yet effective search-based offline IL method, tagged SEABO. SEABO allocates a larger reward to the transition that is close to its closest neighbor in the expert demonstration, and a smaller reward otherwise, all in an unsupervised learning manner. Experimental results on a variety of D4RL datasets indicate that SEABO can achieve competitive performance to offline RL algorithms with ground-truth rewards, given only a single expert trajectory, and can outperform prior reward learning and offline IL methods across many tasks. Moreover, we demonstrate that SEABO also works well if the expert demonstrations contain only observations. Our code is publicly available at https://github.com/dmksjfl/SEABO.
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+In this section, we formally present our novel approach for offline imitation learning, SEArch-Based Offline imitation learning (SEABO). We begin by analyzing the common formulation adopted in distribution matching IL methods (Ho & Ermon, 2016; Kim et al., 2020; Kostrikov et al., 2020) , which attempt to match the state-action distribution of the agent p π and the expert p e , often by means of minimizing some f -divergence measurement D f : arg min π D f (p π ∥p e ). Though these methods have promising results, they usually require training task-specific discriminators and suffer from training instability (Wang et al., 2020; Ma et al., 2022) . A natural question arises, can we get the reward signals without training neural networks? Instead of measuring the distribution of states or state-action pairs, we want to determine the optimality of a single transition. Our idea is quite straightforward, the closer the transition is to the expert trajectory, the more optimal this transition is. The agent ought to pay more attention to those optimal transitions. This motivates us to measure how close the unlabeled transition is to the expert trajectories. We propose to achieve this by finding the nearest neighbor of the query transition in the expert demonstrations, and then measuring their distance (e.g., Euclidean distance). If the distance is large, then the transition is away from the expert demonstration. While if the distance is small, it indicates that the transition is near-optimal, or even is exact expert data if the distance approaches 0. Intuitively, this distance can be interpreted as a reward signal.
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+To that end, we construct a function dubbed NearestNeighbor(demo,query sample) that returns the nearest neighbor of the query sample in the expert demonstrations. Suppose the expert trajectories are made up of state-action pairs, then for the query sample (s, a, s ′ ), we have:
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+(s e , ãe , s′ e ) = NearestNeighbor(D e , (s, a, s ′ )).
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+(1)
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+Then we measure their deviation using some distance measurement D: d = D((s e , ãe , s′ e ), (s, a, s ′ )).
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+(2)
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+Afterward, following prior work (Cohen et al., 2022; Freund et al., 2023; Dadashi et al., 2021; Luo et al., 2023) , we get the rewards via a squashing function: r = α exp(-β × d), where α and β are hyperparameters that control the scale of the reward and the impact of the distance, respectively. Find its nearest neighbor, (s e , ãe , s′ e ) = NearestNeighbor(D e , (s, a, s ′ ))
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+5:
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+Measure the distance: d = D((s e , ãe , s′ e ), (s, a, s ′ ))
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+6:
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+Get the reward signal via Equation 37:
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+D label ← D label ∪ (s, a, r, s ′ ) 8: end for We name the resulting method SEABO, and list its pseudo-code in Algorithm 1. For practical implementation of SEABO, we leverage KD-tree (Bentley, 1975) for searching the nearest neighbors, and adopt Euclidean distance (Torabi et al., 2019) as the distance measurement for simplicity (i.e., the default setting of KD-tree). We also slightly modify the aforementioned formula of the reward function to make it better adapt to different tasks with one set of hyperparameters, which gives:
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+EQUATION
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+where |A| is the dimension of the action space. Note that this technique is also adopted in Dadashi et al. (2021) . We choose to use (s, a, s ′ ) to query since the magnitude of states and actions may be different. One possible solution is to query the demonstrations via (ξ × s, a), ξ ∈ R + , but it introduces an additional hyperparameter that may need to be tuned per dataset. We empirically find that involving s ′ in the query sample can ensure good performance across many tasks. The above procedure (as specified in Figure 1 (right)) also applies when the expert demonstrations contain only observations, because it is feasible that we find the nearest neighbors using only observations. SEABO enjoys many advantages over prior reward learning methods or offline imitation learning algorithms. First, SEABO does not require any additional processing upon the offline dataset1 .
+
+[OFFLINE IMITATION LEARNING VIA SEARCH-BASED METHOD]
+The unlabeled dataset can have different trajectory lengths, and the unlabeled trajectories can be fragmented, or even scattered, since SEABO computes the rewards only using the single transition instead of the entire trajectory. Second, SEABO does not require training reward models or discriminators, hence getting rid of the issues of training instability and hyperparameter tuning of the neural networks. Third, SEABO is easy to implement and can be combined with any offline RL algorithm. To show the effectiveness of our method, we plot the distribution of ground-truth rewards (oracle) and rewards given by SEABO. We choose two datasets, halfcheetah-medium-expert-v2 and hopper-medium-v2 from D4RL (Fu et al., 2020) as examples, and use α = 1, β = 0.5, which is the same as our hyperparameter setup in Section 5. The results are summarized in Figure 2 . We find that the reward distributions of SEABO resemble those of oracle. Notably, SEABO successfully gives two peaks in halfcheetah-medium-expert, indicating that it can distinguish samples of different qualities. These reveal that SEABO can serve as a good reward labeler, which validates its combination with off-the-shelf offline RL algorithms.
+
+[COMPARISON AGAINST OFFLINE IL ALGORITHMS]
+To further show the advantages of SEABO, we additionally compare it against recent strong offline imitation learning approaches, including DemoDICE (Kim et al., 2022b) and SMODICE (Ma et al., 2022) . We also convert two online IL algorithms into the offline setting, SQIL (Reddy et al., 2020) and PWIL (Dadashi et al., 2021) , where we replace the base algorithm in SQIL with TD3 BC and utilize IQL as the base algorithm for PWIL. All algorithms are run using their official implementations under the identical experimental setting as SEABO (i.e., one single expert demonstration).
+
+[COMPARISON AGAINST OFFLINE IL ALGORITHMS]
+For a fair comparison, we involve actions when training discriminators in SMODICE and measuring the distance in PWIL. We use IQL as the base algorithm for SEABO. The empirical results in Table 4 show that IQL+SEABO achieves the best performance on 6 out of 9 datasets, and has the highest total score (surpassing the second highest one by 13.9%). Though SEABO underperforms PWIL on some datasets, it significantly beats PWIL on tasks like hopper-medium-v2. Note that SMODICE behaves poorly on many tasks, which is also observed in Li et al. (2023) .

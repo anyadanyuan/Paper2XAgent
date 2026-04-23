@@ -1,0 +1,140 @@
+[Abstract]
+The alignment of language models with human preferences is vital for their application in realworld tasks. The problem is formulated as optimizing the model's policy to maximize the expected reward that reflects human preferences with minimal deviation from the initial policy. While considered as a straightforward solution, reinforcement learning (RL) suffers from high variance in policy updates, which impedes efficient policy improvement. Recently, direct preference optimization (DPO) was proposed to directly optimize the policy from preference data. However, we show that DPO derived based on the optimal solution of the problem leads to a compromised mean-seeking approximation of the optimal solution in practice. In this paper, we propose efficient exact optimization (EXO) of the alignment objective. EXO is guaranteed to optimize in the same direction as RL algorithms asymptotically for arbitrary policy parametrization. This leads to the same mode-seeking solution, while enables efficient optimization by circumventing the complexities of RL. We also compare our method to DPO with both theoretical and empirical analyses, and further demonstrate the advantages of our method over existing approaches on realistic human preference data. Code is available at https://github.com/haozheji/ exact-optimization.
+
+[Methodology]
+In this section, we start with a generalized alignment objective and present its equivalent form under the perspective of probability matching. Then we formally derive efficient exact optimization (EXO) of the generalized alignment objective while bypassing the necessity of employing any RL algorithms. Furthermore, we compare against DPO and demonstrate the advantage of our approach in terms of the distributional characteristics of the learned policy. All the proofs are provided in Appendix A.
+
+[From the Generalized Alignment Objective to Probability Matching]
+We first introduce a generalized alignment objective that distributes the intensity of the KL regularization regarding the SFT policy to both the parametrized policy π θ and the reward model r ϕ , which intuitively connects the regularization setting of DPO (Eq. ( 6)) that only regularizes π θ and PPO (Eq. ( 3)) that only regularizes r ϕ . In the following theorem, we present the formal definition and the property of the generalized alignment objective. Theorem 3.1. Let β π > 0, β r > 0 and β π β r = β. The generalized alignment objective is defined as
+
+[From the Generalized Alignment Objective to Probability Matching]
+EQUATION
+
+[From the Generalized Alignment Objective to Probability Matching]
+where π βπ θ (y|x) satisfies
+
+[From the Generalized Alignment Objective to Probability Matching]
+EQUATION
+
+[From the Generalized Alignment Objective to Probability Matching]
+)
+
+[From the Generalized Alignment Objective to Probability Matching]
+Given unlimited model capacity, the optimal π θ * that maximizes
+
+[From the Generalized Alignment Objective to Probability Matching]
+J βr lhf (π βπ θ ) satisfies π θ * = π * β .
+
+[From the Generalized Alignment Objective to Probability Matching]
+Intuitively, J βr lhf (π βπ θ ) calculates the expectation of the reward regularized with the intensity β r with respect to the policy regularized with the intensity β π . As the total regularization intensity β = β r β π is fixed, J βr lhf (π βπ θ ) maintains the same analytic solution π * β as J β lhf (π θ ). Furthermore, it interpolates the policy regularization setting (β r = 1, β π = β) in the DPO objective 1 and the reward regularization setting (β r = β, β π = 1) in the PPO objective when continuously tunning β r and β π while keeping their product fixed. We also empirically show the effect of β r and β π beyond the impact on their product β = β r β π in Appendix C.2.
+
+[From the Generalized Alignment Objective to Probability Matching]
+Next, we derive an equivalent form of the generalized alignment objective by rearranging the elements in Eq. ( 7), which offers a new insight of the alignment problem from the probability matching perspective. The detailed derivation can be
+
+[From the Generalized Alignment Objective to Probability Matching]
+1 β log π θ (y|x) π sft (y|x) = log π β θ (y|x)
+
+[From the Generalized Alignment Objective to Probability Matching]
+π sft (y|x) + C(x) where C(x) depends only on x, which does not effect the DPO objective in Eq. (6). found in Appendix A.2.
+
+[From the Generalized Alignment Objective to Probability Matching]
+EQUATION
+
+[From the Generalized Alignment Objective to Probability Matching]
+As the second term is a constant with respect to π θ , Eq. ( 9) reveals that maximizing the generalized alignment objective J βr lhf (π βπ θ ) with respect to π θ is equivalent to minimizing the expected reverse KL divergence D KL (π βπ θ ∥π * βr ), where π βπ θ is a function of π θ as defined in Eq. ( 8). This equivalence implies the possibility of converting the reward maximization problem into a supervised divergence minimization problem, which is able to circumvent the poor stability and low sample efficiency issue caused by high variance in RL solutions (Papini et al., 2018; Anschel et al., 2017) . In the following, we introduce our approach towards exact optimization of this generalized alignment objective by practically realizing the probability matching objective. Without loss of generality, our results remain valid for the original alignment objective in Eq. (3).
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+We now formally derive EXO which optimizes the generalized alignment objective J βr lhf (π βπ θ ) by realizing the reverse KL divergence D KL (π βπ θ ∥π * βr ). We start with the general setting of language model alignment which preassumes the existence of a reward model r ϕ ; then we consider the case of learning directly from the preference data.
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+To facilitate policy optimization with straightforward gradient back propagation, we rewrite D KL (π βπ θ ∥π * βr ) under the expectation of the proposal policy π sft :
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+D KL (π βπ θ ∥π * βr ) = E πsft(y|x) π βπ θ (y|x) π sft (y|x) log π βπ θ (y|x) π * βr (y|x)
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+.
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+The above expression can be further simplified by defining the log ratio as f θ (x, y) = log π βπ θ (y|x)log π sft (y|x):
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+D KL (π βπ θ ∥π * βr ) = E πsft(y|x) e f θ (x,y) log e f θ (x,y) 1 Z βr (x) e r ϕ (x,y) βr
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+.
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+As the intractable nature of Z βr (x) hinders direct estimation via Monte Carlo simulation, we propose a practical way to estimate this term by first drawing multiple samples from π sft , and then calculating the reverse KL between the probability distributions defined by f θ (x, y) and 1 βr r ϕ (x, y) over these samples via self-normalization respectively.
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+• Learning from a reward model. Formally, given K > 1 i.i.d. completions y 1:K = {y 1 , • • • , y K } drawn from π sft (y|x), we define an empirical distribution p f θ by normalizing the exponential reward e f θ (x,y) over the K samples:
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+p f θ (i|y 1:K , x) = e f θ (x,y i )
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+K j=1 e f θ (x,y j ) .
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+(10)
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+Recall that f θ (y|x) = log π βπ θ (y|x)log π sft (y|x) and π βπ θ (y|x) ∝ π θ (y|x) βπ π sft (y|x) 1-βπ , Eq. ( 10) can be rewritten into a form that explicitly depends on π θ :
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+EQUATION
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+where β π can be regarded as the inverse temperature that modulates the empirical distribution defined by the log ratio between π θ and π sft . Similarly, we define a distribution p r over the K samples modeled by the reward model r ϕ :
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+EQUATION
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+Finally, we translate the original objective of reward maximization J βr lhf (π βπ θ ) into the reverse KL between p f θ and p r ϕ over y 1:K sampled from π sft :
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+EQUATION
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+)
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+The complete form of L exo is presented in Eq. ( 23) in Appendix A.3. Besides its practical simplicity for implementation, we also elucidate its theoretical attributes by characterizing its connection with the generalized alignment objective in Theorem 3.2.
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+Theorem 3.2. Following π * βr , π βπ θ and J βr lhf (π βπ θ ) defined in Eq. (4), (8), and (7), for K → ∞ and arbitary θ, the gradient of L exo (π θ ) satisfies
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+EQUATION
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+)
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+Theorem 3.2 suggests the optimization direction for π θ during the intermediate optimization steps for minimizing L exo (π θ ) aligns with the direction required to maximize the generalized alignment objective J βr lhf (π βπ θ ) asymptotically, when sufficient sample population is provided. In §4.1, we show that EXO achieves encouraging convergence in practical scenarios with only a finite K. Again, as a special case, ∇ θ L exo (π θ ) aligns with ∇ θ J β lhf (π θ ) when β π = 1, β r = β, which effectively connects with Eq. ( 3). The result in Theorem 3.2 is crucial, as it sheds light on exact optimization of the generalized alignment objective via a simple density matching approach with strong theoretical guarantees. In Appendix A.5, we provide a mechanistic understanding of the gradient ∇ θ L exo (π θ ) which is a weighted sum of the gradients ∇ θ log π θ (y k |x). The weight is proportional to D KL (p f θ ∥p r ϕ ) which characterizes the distributional gap biased by a point-wise correction on the sample y k .
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+• Learning from human preference data. In situations where only preference data is accessible, we devise an empirical formulation of L exo . Given a preference dataset D pref where each prompt x is paired with y w and y l denoting the chosen and rejected completions. This binary supervision can be effectively transformed into an empirical distribution of p r h defined by the underlying reward r h of human preference. To avoid infinity when calculating KL divergence, we smooth the one-hot distribution into a soft distribution, i.e., p r h (w|y w , y l , x) = 1ε and p r h (l|y w , y l , x) = ε, where ε > 0 is a hyperparameter. p f θ can still be computed according to Eq. ( 11) over y w and y l . As a result, we present the EXO objective on the prefence data by setting K = 2 and substituting r ϕ with r h in Eq. ( 13):
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+EQUATION
+
+[Efficient Exact Optimization of the Generalized Alignment Objective]
+In practice, π sft is fine-tuned on either D sft which is collected from the same domain as D pref , or the chosen completions in D pref when D sft is not available. This closes the distributional gap between π sft and the unknown distribution that generates the preference data D pref .
+
+[B. Training and Evaluation Details]
+Training. In the controlled text generation task, we use β π = 0.1 for EXO pref and DPO pref , and additionally use β r = 0.1 and K ∈ {4, 8} for EXO rw and DPO rw . For the tasks of summarization, dialogue generation, and instruction following, we use β π = 0.5 for EXO pref and DPO pref , and additionally use β r = 0.1 and K = 4 for EXO rw and DPO rw . We provide additional results of tuning β r and β π in Appendix C.1 to justify our choice of hyperparameters. In all experiments, we set the label smoothing hyperparameter ε in EXO pref to 1e-3. For DPO and EXO, we use the Adam optimizer with a universal learning rate of 1e-6 and a batch size of 64 and train for one epoch on each dataset, although both methods converge within one epoch. All the hyperparameters are set to be the same for DPO and EXO for a fair comparison. For PPO, we modify based on the implementation of DeepSpeed-Chat (Yao et al., 2023) , which sets γ = 1 and β = 0.1 by default. We pretrain the critic model for the first few steps while freezing the actor model and find it to improve convergence. We empirically tune the number of actor-freezing steps, total training steps, learning rate for actor and critic model, and the batch size for PPO on each dataset, as PPO is sensitive to these hyperparameters. Specifically, we conduct 15 trials of hyperparameter search on the IMDB dataset and 10 trials on the real human preference datasets in total. In the experiment, we report the PPO performance with the best hyperparameters obtained under constrained number of hyperparameter search trials. We conduct the experiments except for instruction following on 8 V100 GPUs. For instruction following task, we train the models on 8 A100 GPUs. Estimated density ratio of the EXO, DPO and optimal policy given the prompt "Is this supposed to be serious? I hope not".
+
+[B. Training and Evaluation Details]
+-1200 -1000 -800 -600 -400 -200 0 log π sft (y|x) 0 50 100 optimal EXO DPO Estimated density ratio of the EXO, DPO and optimal policy given the prompt "Great book, great movie, great soundtrack.
+
+[B. Training and Evaluation Details]
+Frank".
+
+[B. Training and Evaluation Details]
+-1200 -1000 -800 -600 -400 -200 Estimated density ratio of the EXO, DPO and optimal policy given the prompt "Once the slow beginning gets underway, the film kicks".
+
+[B. Training and Evaluation Details]
+Figure 9 . Visualization of the estimated density ratio of the policy learned by EXO and DPO, and the optimal policy given 10 test prompts randomly sampled from the IMDb dataset.

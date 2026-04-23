@@ -1,0 +1,41 @@
+[Abstract]
+Social reward as a form of community recognition provides a strong source of motivation for users of online platforms to actively engage and contribute with content to accumulate peers approval. In the realm of text-conditioned image synthesis, the recent surge in progress has ushered in a collaborative era where users and AI systems coalesce to refine visual creations. This co-creative process in the landscape of online social networks empowers users to craft original visual artworks seeking for community validation. Nevertheless, assessing these models in the context of collective community preference introduces distinct challenges. Existing evaluation methods predominantly center on limited size user studies guided by image quality and alignment with prompts. This work pioneers a paradigm shift, unveiling Social Reward -an innovative reward modeling framework that leverages implicit feedback from social network users engaged in creative editing of generated images. We embark on an extensive journey of dataset curation and refinement, drawing from Picsart: an online visual creation and editing platform, yielding a first million-user-scale dataset of implicit human preferences for user-generated visual art named Picsart Image-Social. Our analysis exposes the shortcomings of current metrics in modeling community creative preference of text-to-image models' outputs, compelling us to introduce a novel predictive model explicitly tailored to address these limitations. Rigorous quantitative experiments and user study show that our Social Reward model aligns better with social popularity than existing metrics. Furthermore, we utilize Social Reward to fine-tune text-to-image models, yielding images that are more favored by not only Social Reward, but also other established metrics. These findings highlight the relevance and effectiveness of Social Reward in assessing community appreciation for AI-generated artworks, establishing a closer alignment with users' creative goals: creating popular visual art.
+
+[EMPIRICAL ANALYSIS OF EXISTING EVALUATION FRAMEWORKS]
+To demonstrate the distinctiveness of the Picsart Image-Social dataset in comparison to those employed by existing solutions and to highlight the limitations of these solutions, we undertook a comprehensive analysis. Our three-fold analysis (prompt analysis, comparative quantitative evaluation on collected test set and comparative label explainability analysis of score models datasets) reveals that current evaluation models are poorly suitable for estimating the social popularity of images.
+
+[SOCIAL REWARD: A NEW METRIC MODEL]
+In this section, we present our Social Reward model, which has been trained using user feedback collected from Picsart. We will describe the various backbone models and loss functions considered during our experiments, and conduct comparative analysis with existing solutions.
+
+[SOCIAL REWARD MODEL TRAINING]
+Model: Social Reward is trained through fine-tuning of the CLIP model. When provided with a prompt and an image, our scoring function calculates a real-valued score. This score is determined by representing the prompt using a transformer-based text encoder and the image using a transformer-based image encoder, both as d-dimensional vectors and then computing their cosine similarity. Fine-tuning the last two residual blocks of the textual encoder and the last three residual blocks of the visual encoder in CLIP yields superior results on our validation dataset.
+
+[Loss function:]
+We experimented with various loss functions and observed that the triplet (Schroff et al., 2015) loss yielded the most favorable outcomes (please refer to Appendix B for details): 
+
+[Loss function:]
+L triplet (a, p, n) = max(0, ∥a -p∥ 2 -∥a -n∥ 2 + α),
+
+[Loss function:]
+where a is the vector representation of the prompt, p is the vector representation of the positive image, n is the vector representation of the negative image and α is margin.
+
+[Loss function:]
+Hyperparameters: We employed the AdamW optimizer with a learning rate of 0.0003 and a batch size of 32, utilizing a distributed computing setup consisting of 8 A100 GPUs.
+
+[Loss function:]
+Experiments: We conducted a wide range of experiments including the exploration of various model backbones (such as CLIP and BLIP (Li et al., 2022) ), fine-tuning with different components of these models (visual and textual encoders), and more ablation studies. We compared our model with existing solutions using a dedicated test dataset. We assessed our performance using the pairwise accuracy metric, based on prompt-image cosine similarity distance. As shown in Table 4 our model outperformed existing solutions in this evaluation.
+
+[SOCIAL REWARD MODEL EVALUATION]
+The codebase for Social Reward model training and evaluation is provided as supplementary material. Figure 6 demonstrates ranking of the images by Social Reward score (for more visuals see Appendix Figure 9 ). To validate the results and check their generalizability we conducted a user study and compared with PickScore model, as it has the second highest accuracy on our dataset and also involves real users feedback. We generated 20 images with Stable Diffusion 2.1-base (Rombach et al., 2022) with the 100 prompts sampled from PickScore's test set and chose the best image by Social Reward and PickScore. Then we contacted number of popular creators from Picsart and collected their feedback with respect to which of the two images is more likely to get popular on the platform. Figure 5 shows Social Reward outperforms PickScore in ability to estimate social popularity and generalizes well to prompts outside of its training distribution.
+
+[USING SOCIAL REWARD TO FINE-TUNE T2I MODELS]
+Training: Social Reward can be used to fine-tune generative models to better align with the creative preferences of the community. For 1 million generated images by the users of our community, we calculated the Social Reward score and adapted the fine-tuning method from Wu et al. (2023b) , for a given prompt choosing the image with the highest score and the image with the lowest score. For the image with the lowest score, we added a special token ('t@y quality') to be used at inference time as a negative prompt. We also adapted the common practice of adding 625k subset of LAION-5B (Schuhmann et al., 2022) for regularization. The final training dataset consists of 330.000 images, half of which come from LAION's subset. We fine-tune both the U-Net and the textual encoder of Stable Diffusion 2.1-base model with a learning rate of 1e-5.
+
+[USING SOCIAL REWARD TO FINE-TUNE T2I MODELS]
+Evaluation: We calculate several metrics for images generated by vanilla and fine-tuned models.
+
+[USING SOCIAL REWARD TO FINE-TUNE T2I MODELS]
+Evaluation is done on 2 separate sets of prompts: internal and general. Internal prompts are selected from our fine-tuning validation prompts set, while general prompts are taken from DiffusionDB (Wang et al., 2023) . For each prompt, we generate 4 images with each model using DDIM scheduler (Song et al., 2022) for 30 steps. In Table 5 , we present average scores and in Table 6 the percentage of times the fine-tuned model outperformed the baseline for each metric and prompt set. Visual comparisons are in Figure 7 and Appendix Figure 10 .
+
+[B LOSS EXPERIMENTS]
+We investigated a range of loss functions, such as the Binary Cross Entropy, Reweighted Cross-Entropy Loss (Wang et al., 2021) , and metric losses such as InfoNCE (van den Oord et al., 2019) , Contrastive (Khosla et al., 2021) and Triplet (Schroff et al., 2015) . The best results were obtained using the Triplet loss. Performance comparison of the model trained under different loss functions is presented in the Table 7 . 

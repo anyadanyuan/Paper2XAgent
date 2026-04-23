@@ -1,0 +1,71 @@
+[Abstract]
+Bayesian optimization has been successfully applied to optimize black-box functions where the number of evaluations is severely limited. However, in many real-world applications, it is hard or impossible to know in advance which designs are feasible due to some physical or system limitations. These issues lead to an even more challenging problem of optimizing an unknown function with unknown constraints. In this paper, we observe that in such scenarios optimal solution typically lies on the boundary between feasible and infeasible regions of the design space, making it considerably more difficult than that with interior optima. Inspired by this observation, we propose BE-CBO, a new Bayesian optimization method that efficiently explores the boundary between feasible and infeasible designs. To identify the boundary, we learn the constraints with an ensemble of neural networks that outperform the standard Gaussian Processes for capturing complex boundaries. Our method demonstrates superior performance against stateof-the-art methods through comprehensive experiments on synthetic and real-world benchmarks.
+
+[Proposed Method]
+Our proposed method implements the BO pipeline with a few modifications described below. In summary, our method consists of the following steps: We first conduct initial evaluations on a random set of samples. We then fit a GP (as outlined in Rasmussen & Williams (2005) ) on the evaluated data to model the objective function. In parallel, we fit another surrogate model to approximate the constraints described in Section 4.1. To select which sample to evaluate next, we optimize an acquisition function EI (see Section 3) with a constrained optimization approach introduced in Section 4.2. Finally, we evaluate the proposed sample and iterate until we reach the budget for the number of function evaluations.
+
+[Modeling Constraints]
+As described in Section 3, we consider the problem of representing constraints as a binary function, i.e., a classifier that predicts for each design sample whether it is feasible or infeasible. Specifically, we aim to train a classifier C : X ⊂ R d → [0, 1] that measures a probability of sample x being feasible. When C(x) > 0.5, sample x is considered more likely to be feasible.
+
+[Modeling Constraints]
+For many practical problems, it is difficult even to find a single feasible solution due to the non-convex nature of the feasible set. Hence, fitting a good surrogate model for the unknown constraints is a delicate task. Many previous works utilize GPs to approximate the constraints based on a given set of evaluations (Eriksson & Poloczek, 2021; Gelbart et al., 2014) . However, since we observe that the optimal solution typically lies on the boundary between feasible and infeasible regions (see Section 4.2), having a higher-accuracy surrogate model is crucial. To the best of our knowledge, we are the first to propose the use of Deep Ensembles (DE) (Lakshminarayanan et al., 2017; Fort et al., 2019) for this purpose in Bayesian optimization. Please note the difference between ensembles previously used in Bayesian optimization that were in the context of Gaussian Process Ensembles (Wang et al., 2018) and Acquisition Functions Ensembles (Hoffman et al., 2011; Kandasamy et al., 2020) . 
+
+[Modeling Constraints]
+Deep
+
+[Modeling Constraints]
+(x) = 1 N N i M θ ⋆ i (x)
+
+[Modeling Constraints]
+, where θ ⋆ i are trained weights for each model. In addition, we can compute the variance of the prediction as σ
+
+[Modeling Constraints]
+E (x) 2 = 1 N -1 N i (M θ ⋆ i (x) -µ E (x)) 2 .
+
+[Modeling Constraints]
+To evaluate the feasibility probability C(x) we are essentially computing C(x) = µ E (x). See details in Appendix A.1.
+
+[Modeling Constraints]
+Benefits of Deep Ensembles GP-based constraint modeling has several limitations which can be addressed by using DE. First, GPs inherently assume a degree of smoothness in the underlying function they model, as evidenced by the choice of kernel function (e.g., RBF, Matern). This smoothness assumption can lead to difficulties when trying to capture sharp boundaries or discontinuities of the constraint. Second, the kernel structure is chosen a priori and remains fixed throughout the optimization. Although parameters of the kernel can be fitted to data, the form of the kernel itself is fixed and might not be well-suited to represent complex, non-linear boundaries. This limitation Figure 2 : Example evaluation of the LSQ synthetic benchmark problem guided by our algorithm BE-CBO. Top row illustrates the objective function, while the bottom row illustrates the classifier. In the left plot, the ground truth is shown with the boundary and optimal solution. In the second plot, the state of the surrogate is shown for both the constraint and the objective, based on the first initial 10 samples. The following three plots demonstrate the state of the surrogate models for the objective and the constraint after 50, 120, and 200 evaluations.
+
+[Modeling Constraints]
+is discussed in depth in the context of model selection and adaptation (Duvenaud et al., 2013) . Thus, compared to GP, DE is more flexible and powerful in representing complex constraint functions (see Figure 1 and (Beluch et al., 2018) for examples). Besides, DE is also fast to train due to easy parallelization and simple architectures (see Section 5 for runtime comparisons). Please refer to Appendix D.1 for more detailed comparison between GP and DE.
+
+[Modeling Constraints]
+Training Deep Ensembles In practice, we find that training DE with the popular maximum likelihood estimation (e.g., using binary cross-entropy loss) as suggested by Lakshminarayanan et al. (2017) leads to poorly calibrated uncertainties and thus deteriorates the BO performance. Instead, we find training DE with variational inference, specifically, evidence lower bound (ELBO), provides better-calibrated uncertainties and improves performance by a large margin, as aligned with observations from Tomczak et al. (2018) . This approach requires the model to output continuous latent values that can be transformed to probabilities using Bernoulli likelihood. Please see Appendix A.1.2 for computation details and experimental validations.
+
+[A. Method Implementation Details]
+A.1. Deep Ensembles
+
+[A.1.1. NEURAL NETWORK ARCHITECTURE AND PARAMETERS]
+We implement an ensemble of Multi-layer Perceptrons (MLPs) for modeling the unknown constraints. For each MLP in the ensemble, we use a simple and standard structure of 4 fully connected layers with 64⌊log 2 (d)⌋ neurons in each hidden layer where d is the problem dimension. The network gets larger as the problem dimension gets higher. We use ReLU nonlinearity between each pair of fully connected layers.
+
+[A.1.1. NEURAL NETWORK ARCHITECTURE AND PARAMETERS]
+Similar to training GP classifiers using a variational framework (Hensman et al., 2015) , we use the variational evidence lower bound (ELBO) to approximate the posterior and marginal likelihood of Deep Ensemble classifiers given the Bernoulli likelihood. The ensemble is optimized for maximal marginal log likelihood using the Adam optimizer with a 3 × 10 -4 learning rate for 1,000 iterations. Note that we do not apply regularization or dropout as suggested by Lakshminarayanan et al. (2017) .
+
+[A.1.1. NEURAL NETWORK ARCHITECTURE AND PARAMETERS]
+Overall, the architecture we use is very simple and straightforward to implement with almost no hyper-parameters, but works robustly across a wide range of benchmark problems as shown in our experiments.
+
+[B.2. Baseline Algorithms]
+In this section, we provide a description of the other baseline algorithms that we used for comparison with our own algorithm. Specifically, we compare our algorithms to several BO baseline algorithms that are discussed in Results Section of the main paper. These baseline algorithms are designed or have been modified to handle binary unknown constraints. Here we describe the differences between our adoption of these algorithms and their original formulation in the paper.
+
+[B.2. Baseline Algorithms]
+CEI (Gelbart et al., 2014) We implement this algorithm in BoTorch. The acquisition function remains unchanged to its original form, with one notable modification regarding the constraint classification. In contrast to the paper's setup where individual constraints provide separate responses, our evaluation process only allows for obtaining a single feasibility response. Therefore, we have modified the implementation to utilize a single binary classifier as a constraint surrogate instead of multiple classifiers for multiple constraints as described in the original paper.
+
+[B.2. Baseline Algorithms]
+SCBO (Eriksson & Poloczek, 2021) We implement this algorithm in BoTorch as there exists a reference implementation in the BoTorch documentation1 . In contrast to the original setup, where multiple continuous responses can be obtained from individual constraints during evaluation, our approach assumes a binary feasibility response. Consequently, we employ a single binary classifier in our setup, similar to the adoption of CEI, instead of multiple regressors for multiple constraints as described in the paper. Due to the binary nature of the constraint, we do not apply the Bilog transformation to the constraint values. However, we still apply the Gaussian copula transformation to the objective values and implement the restart of new trust regions according to the paper's descriptions.
+
+[B.2. Baseline Algorithms]
+SVM-CBO (Antonio, 2021) To conduct the SVM-CBO algorithm experiments, we utilized the code and framework provided by the authors. The experimental setup described in their paper involved 100 evaluations, comprising of 10 initial samples, 60 evaluations in phase 1, and 10 evaluations in phase 2. In our extended evaluations, where we employed 20 initial samples and a total of 200 evaluations, we maintained the same ratio as described in the original paper. Thus, we performed 127 evaluations in phase 1 and 63 evaluations in phase 2. We show more qualitative comparison of sample distributions on extra two 2D functions (LSQ and Townsend) in Figure 7 and 8 besides the Simionescu shown in the main paper. Same as the main paper, in each figure, the true function landscape is on the left, where darker color means a higher objective value and the white region means infeasible. On the right is the predicted function landscape (top: CEI, middle: SCBO, bottom: BE-CBO) where darker color means a higher objective value and the contour means the feasibility boundary (feasible inside, infeasible outside). Initial samples (grey), the rest evaluated samples (black) and the global optima (red) are also displayed.
+
+[D.2.2. NUMBER OF HIDDEN LAYERS]
+The effect of the number of layers on the algorithm is shown in Figure 15 . We tested 1, 2, 3, 4 hidden layers with 64 log 2 d neurons in each layer where d is the problem dimension. The result shows that one hidden layer is insufficient in some cases since the network is too shallow which leads to underfitting. Two or more hidden layers perform similarly in general. The performance of BE-CBO is not particularly sensitive to the number of layers as long as it has more than one hidden layer.
+
+[D.2.3. NUMBER OF NEURONS IN A LAYER]
+The effect of the number of layers on the algorithm is shown in Figure 16 . To effectively learn across all problem dimensions, we scale the number of neurons in each layer w.r.t. the problem dimension following a logarithmic formula
+
+[D.2.3. NUMBER OF NEURONS IN A LAYER]
+N (d) = C log 2 (d)
+
+[D.2.3. NUMBER OF NEURONS IN A LAYER]
+where N is the number of neurons, d is the problem dimension and C is a constant factor. We tested C = 16, 32, 64, 128, 256 with 2 hidden layers. The results suggest that on most problems, the number of neurons do not matter much, but in some problems, networks with a low capacity (C = 16 or 32) are outperformed by networks with more neurons and it seems like C = 64 is a stable choice across all problems.

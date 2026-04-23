@@ -1,0 +1,149 @@
+[Abstract]
+Illustration of INTR. We show four images (row-wise) of the same bird species Painted Bunting and the eight-head cross-attention maps (column-wise) triggered by the query of the ground-truth class. Each head is learned to attend to a different (across columns) but consistent (across rows) semantic cue in the image that is useful to recognize this bird species (e.g., attributes). The exception is the last row, which shows inconsistent attention. Indeed, this is a misclassified case, showcasing how INTR interprets (wrong) predictions.
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Cross-attention. Cross-attention can be seen as a (soft) retrieval process. Given an input query vector z in ∈ R D , it finds similar vectors from a vector pool and combines them via weighted average. In our application, this pool corresponds to the feature map X. Without loss of generality, let us reshape the feature map X
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+∈ R D×H×W to X = [x 1 , • • • , x N ] ∈ R D×N . That is, X contains N = H × W feature vectors representing each spatial grid in an image; each vector x n is D-dimensional.
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+With z in and X, cross-attention performs the following sequence of operations. First, it projects z in and X to a common embedding space such that they can be compared, and separately projects X to another space to emphasize the information to be combined,
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+EQUATION
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Then, it performs an inner product between q and K, followed by Softmax, to compute the similarities between z in and vectors in X, and uses the similarities as weights to combine vectors in V linearly,
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+EQUATION
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+where √ D is a scaling factor based on the dimensionality of features. In other words, the output of cross-attention is a vector z out that aggregates information in X according to the input query z in .
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Class-specific queries. Inspired by the inner workings of cross-attention, we propose to learn C "class-specific" query vectors
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Z in = [z (1) in , • • • , z (C)
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+in ] ∈ R D×C , one for each class. We expect each of these queries to look for the "class-specific" distinctive patterns in X. The output vectors
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Z out = [z (1) out , • • • , z (C)
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+out ] ∈ R D×C thus should encode whether each class finds itself in the image,
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+EQUATION
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+We note that the Softmax is taken over elements of each column; i.e., in Equation 5, each column in Z in attends to X independently. We use superscript/subscript to index columns in Z/X.
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Classification rule. We compare each vector in Z out to a learnable "presence" vector w ∈ R D to determine whether each class is found in the image. The predicted class is thus
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+EQUATION
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Training. As each class obtains a logit w ⊤ z (c) out , we employ the cross-entropy loss,
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+EQUATION
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+coupled with stochastic gradient descent (SGD) to optimize the learnable parameters, including Z in , w, and the projection matrices W q , W k , and W v in Equation 3. This design responds to the final piece of question in subsection 3.1, "standard learning algorithms".
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Inference and interpretation. We follow Equation 6 to make predictions. Meanwhile, each column of the cross-attention weights Softmax( 5reveals where each class looks to find itself, enabling us to understand why the model predicts or does not predict a class. We note that this built-in interpretation does not incur additional computation costs like post-hoc explanation.
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+K ⊤ Q √ D ) in Equation
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Multi-head attention. It is worth noting that a standard cross-attention block has multiple heads. It learns multiple sets of matrices
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+(W q, r , W k, r , W v, r ) in Equation 3, r ∈ {1, • • • , R}, to look for different patterns in X, resulting in multiple Softmax( K ⊤ r Qr √ D )
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+and Z out, r in Equation 5. This enables the model to identify different "attributes" of a class and allows us to visualize them.
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+In training and inference, {Z out, r } R r=1 are concatenated row-wise, followed by another learnable matrix W o to obtain a single Z out as in Equation 5,
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+Z out = W o [Z ⊤ out, 1 , • • • , Z ⊤ out, R ] ⊤ ∈ R D .
+
+[INTERPRETABLE CLASSIFICATION VIA CROSS-ATTENTION]
+(8) As such, Equation 7and Equation 6 are still applicable to optimize the model and make predictions.
+
+[OVERALL MODEL ARCHITECTURE (SEE FIGURE 2 FOR AN ILLUSTRATION)]
+We implement our full INterpretable TRansformer (INTR) model (cf. Equation 2) using a Transformer decoder (Vaswani et al., 2017) on top of a feature extractor f θ that produces a feature map X. Without loss of generality, we use the DEtection TRansformer (DETR) (Carion et al., 2020) as the backbone. DETR uses a Transformer decoder of multiple layers; each contains a cross-attention block. The output vectors of one layer become the input vectors of the next layer. In DETR, the input to the decoder (at its first layer) is a set of object proposal queries, and we replace it with our learnable "class-specific" query vectors
+
+[OVERALL MODEL ARCHITECTURE (SEE FIGURE 2 FOR AN ILLUSTRATION)]
+Z in = [z (1) in , • • • , z (C) in ] ∈ R D×C .
+
+[OVERALL MODEL ARCHITECTURE (SEE FIGURE 2 FOR AN ILLUSTRATION)]
+The Transformer decoder then outputs the "class-specific" feature vectors Z out that will be fed into Equation 6. Using a Transformer decoder rather than a single cross-attention block has several advantages. First, with multiple decoder layers, the learned queries Z in can improve over layers by grounding themselves on the image. Second, the self-attention block in each decoder layer allows class-specific queries to exchange information to encode the context. (See Appendix C for details.) As shown in Figure 15 , the cross-attention blocks in later layers can attend to more distinctive patterns.
+
+[OVERALL MODEL ARCHITECTURE (SEE FIGURE 2 FOR AN ILLUSTRATION)]
+Training. INTR has three sets of learnable parameters: a) the parameters in the DETR backbone, including f θ ; b) the class-specific input queries Z in ∈ R D×C to the decoder; and c) the class-agnostic vector w. We train all these parameters end-to-end via SGD, using the loss in Equation 7.
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+We analyze how INTR offers interpretability. For brevity, we focus on the model in subsection 3.2.
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+Attention vs. interpretation. There has been an ongoing debate on whether attention offers faithful interpretation (Wiegreffe & Pinter, 2019; Jain & Wallace, 2019; Serrano & Smith, 2019; Bibal et al., 2022) . Specifically, Serrano & Smith (2019) showed that significantly manipulating the attention weights at inference time does not necessarily change the model's prediction. Here, we provide a mathematical explanation for why INTR may not suffer from the same problem. The key is in our classification rule. In Equation 6, we obtain the logit for class c by w ⊤ z (c) out . If c is the ground-truth label, it must obtain a logit larger than other classes c ′ ̸ = c to make a correct prediction. This implies z
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+(c) out ̸ = z (c ′ )
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+out , which is possible only if the cross-attention weights triggered by z Unveiling the inner workings. We dig deeper to understand what INTR learns. For class c to obtain a high logit in Equation 6, z (c) out must have a large inner product with the class-agnostic w. We note that z 4), and V is obtained by applying a projection matrix W v to the feature map
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+(c) out is a linear combination of V = [v 1 , • • • , v N ] ∈ R D×N (cf. Equation
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+X = [x 1 , • • • , x N ] ∈ R D×N (cf. Equation 3). Let q (c) = W q z (c) in and let α (c) = Softmax( K ⊤ q (c) √ D ) ∈ R N , the logit w ⊤ z (c)
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+out can be rewritten as
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+w ⊤ z (c) out = w ⊤ V α (c) ∝[w ⊤ v 1 , • • • , w ⊤ v N ] exp(K ⊤ q (c) ) ∝[w ⊤ W v x 1 , • • • , w ⊤ W v x N ] exp (W k X) ⊤ q (c) (9) ∝[s 1 , • • • , s N ] exp([q (c) ⊤ W k x 1 , • • • , q (c) ⊤ W k x N ] ⊤ ) = n s n × α (c) [n],
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+where
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+s n = w ⊤ W v x n and α (c) [n] ∝ exp(q (c) ⊤ W k x n )
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+. We note that s n does not depend on the class-specific query z (c)
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+in . It only depends on the input image I, or more specifically, the feature map X and how it aligns with the vector w. In other words, we can view s n as an "image-specific" salient score for patch n. In contrast, α (c) [n] depends on the class-specific query z (c) in ; its value will be high if class c finds the distinctive patterns in patch n.
+
+[HOW DOES INTR LEARN TO PRODUCE INTERPRETABLE CROSS-ATTENTION WEIGHTS?]
+Building on this insight and Equation 9, if class c is the ground-truth class, what its query z (c) in needs to do is putting its attention weights α (c) on those high-score patches. Namely, class c must find its distinctive patterns in the salient image regions. Putting things together, we can view the roles of W v and W k as "disentanglement". They disentangle the information in x n into "image-specific" and "classification-specific" components -the former highlights "whether a patch should be looked at"; the latter highlights "what distinctive patterns it contains". When multi-head cross-attention is used, each pair of (W v , W k ) can learn to highlight an object "part" and the distinctive "property" in it. These offer the opportunity to localize the "attributes" of a class. See Appendix B for more details.
+
+[C ADDITIONAL DETAILS OF MODEL ARCHITECTURES]
+Our idea in subsection 3.2 can be realized by the standard Transformer decoder (Vaswani et al., 2017) on top of any "class-agnostic" feature extractors that produce a feature map X (e.g., ResNet (He et al., 2016) or ViT (Dosovitskiy et al., 2021) ). A Transformer decoder often stacks M layers of the same decoder architecture denoted by {L m } M m=1 . Each layer L m takes a set of C vector tokens as input and produces another set of C vector tokens as output, which can then be used as the input to the subsequent layer L m+1 . In our application, the learnable "class-specific" query vectors
+
+[C ADDITIONAL DETAILS OF MODEL ARCHITECTURES]
+Z in = [z (1) in , • • • , z (C)
+
+[C ADDITIONAL DETAILS OF MODEL ARCHITECTURES]
+in ] ∈ R D×C are the input tokens to L 1 . Within each decoder layer is a sequence of building blocks. Without loss of generality, let us omit the layer normalization, residual connection, and Multi-Layer Perceptron (MLP) operating on each token independently, but focus on the Self-Attention (SA) and the subsequent Cross-Attention (CA) blocks.
+
+[C ADDITIONAL DETAILS OF MODEL ARCHITECTURES]
+An SA block is very similar to the CA block introduced in subsection 3.1. The only difference is the pool of vectors to be retrieved -while a CA block attends to the feature map extracted from the image, the SA block attends to its input tokens. That is, in an SA block, the X ∈ R D×N matrix in Equation 3 is replaced by the input matrix Z in ∈ R D×C . This allows each query token z (c) in ∈ R D to combine information from other query tokens, resulting in a new set of C query tokens. This new set of query tokens is then fed into a CA block that attends to the image features in X to generate the "class-specific" feature tokens.
+
+[C ADDITIONAL DETAILS OF MODEL ARCHITECTURES]
+As a Transformer decoder stacks multiple layers, the input tokens to the second layers and beyond possess not only the "learnable" class-specific information in Z in but also the class-specific feature information from X. We note that an SA block can aggregate information not only from similar tokens4 but also from dissimilar tokens. For example, when W q is an identity matrix and W k = -W q , a pair of similar tokens in Z in will receive smaller weights than a pair of dissimilar tokens. This allows similar query tokens to be differentiated if their relationships to other tokens are different, enabling the model to distinguish between semantically or visually similar fine-grained classes. 

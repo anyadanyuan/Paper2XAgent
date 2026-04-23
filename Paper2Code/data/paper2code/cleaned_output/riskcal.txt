@@ -1,0 +1,87 @@
+[Abstract]
+Differential privacy (DP) is a widely used approach for mitigating privacy risks when training machine learning models on sensitive data. DP mechanisms add noise during training to limit the risk of information leakage. The scale of the added noise is critical, as it determines the trade-off between privacy and utility. The standard practice is to select the noise scale to satisfy a given privacy budget ε. This privacy budget is in turn interpreted in terms of operational attack risks, such as accuracy, sensitivity, and specificity of inference attacks aimed to recover information about the training data records. We show that first calibrating the noise scale to a privacy budget ε, and then translating ε to attack risk leads to overly conservative risk assessments and unnecessarily low utility. Instead, we propose methods to directly calibrate the noise scale to a desired attack risk level, bypassing the step of choosing ε. For a given notion of attack risk, our approach significantly decreases noise scale, leading to increased utility at the same level of privacy. We empirically demonstrate that calibrating noise to attack sensitivity/specificity, rather than ε, when training privacy-preserving ML models substantially improves model accuracy for the same risk level. Our work provides a principled and practical way to improve the utility of privacy-preserving ML without compromising on privacy. * Contributed equally.
+38th Conference on Neural Information Processing Systems (NeurIPS 2024).
+Standard Calibration
+Attack Risk → Noise Scale
+FPR) σ Direct calibration of noise to attack risk increases utility compared to the standard calibration at the same level of risk: GPT-2 on SST-2 (text sentiment classification) 55 60 65 70 0.0 0.2 0.4 0.6 0.8 1.0 Attack risk (TPR, 1 -β) α = 0.01 55 60 65 70 Task accuracy α = 0.05 55 60 65 70 α = 0.1 Method Standard calibration Attack risk calibration CNN on CIFAR-10 (image classification) 66 68 70 0.0 0.2 0.4 0.6 0.8 1.0 Attack risk (TPR, 1 -β) 66 68 70 Task accuracy 66 68 70 Method Standard calibration Attack risk calibration
+
+[Our Objective: Attack-Aware Noise Calibration]
+The standard practice in DP is to calibrate the noise scale ω of a mechanism M ω (•) to some target (ε ⋆ , δ ⋆ )-DP guarantee, with ε ⋆ from a recommended range, e.g., ε ⋆ ∈ [2, 10], and δ ⋆ fixed to δ ⋆ < 1 /n, as in Eq. (2). Then, the privacy guarantees provided by the chosen (ε ⋆ , δ ⋆ ) are obtained by mapping these values to bounds on sensitivity and specificity (by Proposition 2.1) or advantage (by Proposition 2.2) of membership inference attacks. In this work, we show that if the goal is to provide an operational and interpretable guarantee such as attack advantage or FPR/FNR, this approach leads to unnecessarily pessimistic noise requirements and a deterioration in utility due to the intermediate step of setting (ε ⋆ , δ ⋆ ). We show it is possible to skip this intermediate step by using the hypothesis-testing interpretation of DP to directly calibrate noise to operational notions of privacy risk. In practice, this means replacing the constraint in Eq. ( 2) with an operational notion of risk:
+
+[Our Objective: Attack-Aware Noise Calibration]
+EQUATION
+
+[Our Objective: Attack-Aware Noise Calibration]
+)
+
+[Our Objective: Attack-Aware Noise Calibration]
+Solving this optimization problem requires two components. First, a way to optimize ω given a method to compute risk ω . As we assume that risk is monotonic in ω, Eq. ( 9) can be solved via binary search (see, e.g., Paszke et al., 2019) using calls to the risk ω function to an arbitrary precision. Second, we need a way to compute risk ω for any value ω. In the next section, we provide efficient methods for doing so for general DP mechanisms, including composed mechanisms such as DP-SGD, by extending the tight privacy analysis from Doroshenko et al. (2022) to computing f -DP. Having these methods, we instantiate Eq. ( 9) for the notions of risks introduced in Section 2.2.
+
+[Other Approaches to Trade-Off Curve Accounting]
+In this section, we first contextualize the proposed method within existing work. Then, we discuss settings in which alternatives to PLRV-based procedures could be more suitable.
+
+[Other Approaches to Trade-Off Curve Accounting]
+Benefits of PLRV-based Trade-Off Curve Accounting. Computational efficiency is important when estimating f ω (α), as the calibration problem requires evaluating this function multiple times for different values of ω as part of binary search. Algorithm 1 computes f ω (α) for a single ω in ≈ 500ms, enabling fast calibration, e.g., in ≈ 1 minute for DP-SGD with T = 10,000 steps on commodity hardware (see Appendix H). Existing methods for estimating f ω (α), on the contrary, either provide weaker guarantees than Proposition 3.5 or are substantially less efficient. In particular, Dong et al.
+
+[Other Approaches to Trade-Off Curve Accounting]
+(2022) introduced µ-GDP, an asymptotic expression for f ω (α) as T → ∞, that overestimates privacy (Gopi et al., 2021) , and thus leads to mechanisms that do not satisfy the desired level of attack resilience when calibrating to it. Nasr et al. (2023) ; Zheng et al. (2020) introduced a discretizationbased approach to approximate f ω (α) (discussed next) that can be orders of magnitude less efficient than the direct estimation in Algorithm 1, e.g., 1-6 minutes (≈ 100-700× slower) for a single evaluation of f ω (α) in the same setting as before, depending on the coarseness of discretization.
+
+[Other Approaches to Trade-Off Curve Accounting]
+Calibration using Black-Box Accountants. Most DP mechanisms are accompanied by (ε, δ)-DP accountants, i.e., methods to compute their privacy profile ε ω (δ) or δ ω (ε). Black-box access to these accountants enables to estimate η ω and f ω (α). In particular, Proposition 2.2 tells us that (0, δ)-DP mechanisms bound advantage as η ≤ δ. Thus, advantage calibration can also be performed with any ε ω (δ) accountant by calibrating noise to ensure ε ω (η ⋆ ) = 0. Estimating f ω (α), as mentioned previously, is less straightforward. Existing numeric approaches (Nasr et al., 2023; Zheng et al., 2020) are equivalent to approximating Eq. ( 6) on a discrete grid over δ ∈ {δ 1 , . . . , δ u }. This requires u calls to the accountant ε ω (δ), thus quickly becomes inefficient for estimating f ω (α) to high precision.
+
+[Other Approaches to Trade-Off Curve Accounting]
+We provide a detailed discussion of such black-box approaches in Appendix A.
+
+[Other Approaches to Trade-Off Curve Accounting]
+Calibration of Mechanisms with Known Trade-Off Curves. An important feature of our calibration methods is that they enable calibration of mechanisms whose privacy profile is unknown Figure 4 : Trade-off curves obtained via our method in Algorithm 1 provide a significantly tighter analysis of the attack risks, compared to the standard method of interpreting the privacy risk for a given (ε, δ) with fixed δ < 1 /n via Eq. ( 5). The trade-off curves are shown for three runs of DP-SGD with different noise multipliers in the language modeling experiment with GPT-2. The dotted line -shows the trade-off curve which corresponds to perfect privacy.
+
+[Other Approaches to Trade-Off Curve Accounting]
+in the exact form, e.g., DP-SGD for T > 1. Simpler mechanisms, such as the Gaussian mechanism, which are used for simpler statistical analyses, e.g., private mean estimation, admit exact analytical solutions to the calibration problems in Eqs. ( 13) and ( 18). In Appendix G, we provide such solutions for the standard Gaussian mechanism, which enable efficient calibration without needing Algorithm 1.
+
+[B Detailed Calibration Algorithms]
+Advantage calibration. The standard advantage calibration first finds ε ⋆ for a given δ ⋆ < 1 /n which provides the desired advantage guarantee via Eq. ( 8), then calibrates noise to the derived (ε ⋆ , δ ⋆ )-DP guarantee using the privacy profile ε ω (δ) function:
+
+[Algorithm 2 Standard advantage calibration]
+Require: η ⋆ , δ ⋆ , where δ ⋆ < 1 n , privacy profile ε ω (δ). 1: Find ε ⋆ by solving Eq. ( 8) for ε with fixed δ = δ ⋆ and η = η ⋆ 2: Find noise parameter ω * , e.g., using binary search:
+
+[Algorithm 2 Standard advantage calibration]
+ω * ← argmin ω∈Ω s.t. ε ω (δ ⋆ ) ≥ ε ⋆ 3: return ω *
+
+[Algorithm 2 Standard advantage calibration]
+For direct calibration to advantage, we first show how to practically use the expression in Theorem 3.3 to evaluate advantage using PLRVs:
+
+[Algorithm 2 Standard advantage calibration]
+Algorithm 3 Compute advantage using PLRVs (X, Y ) Require: PMF Pr[X ω = τ ] over grid {x 1 , x 2 , . . . , x k } with x 1 < x 2 < . . . < x k Require: PMF Pr[Y ω = τ ] over grid {y 1 , y 2 , . . . , y l } with y 1 < y 2 < . . . < y l 1: procedure COMPUTEADV(ω; X ω , Y ω ) 2: t X ← min{i ∈ [k] | x i > 0}, t Y ← min{i ∈ [l] | y i > 0} 3: return l i=t Y Pr[Y ω = y i ] - k i=t X Pr[X ω = x i ]
+
+[Algorithm 2 Standard advantage calibration]
+Given Algorithm 3, direct calibration to advantage amounts to, e.g., binary search:
+
+[Algorithm 2 Standard advantage calibration]
+Algorithm 4 Direct advantage calibration using PLRVs (X, Y )
+
+[Algorithm 2 Standard advantage calibration]
+Require: η ⋆ , PLRVs X ω , Y ω (see Algorithm 3 for a more detailed specification) 1: Find noise parameter ω * , e.g., using binary search:
+
+[Algorithm 2 Standard advantage calibration]
+ω * ← argmin ω∈Ω s.t. COMPUTEADV(ω; X ω , Y ω ) ≤ η ⋆ 2: return ω *
+
+[Algorithm 2 Standard advantage calibration]
+FPR/FNR Calibration. The standard approach to FPR/FNR calibration proceeds analogously to advantage calibration. First, the algorithm solves Eq. ( 5) to obtain the value of ε ⋆ which ensures that a mechanism satisfies f (α ⋆ ) = β ⋆ . Then, the algorithm calibrates the noise to the obtained (ε ⋆ , δ ⋆ ) pair using the privacy profile function ε ω (δ):
+
+[Algorithm 2 Standard advantage calibration]
+Algorithm 5 Standard FPR/FNR calibration Require: α ⋆ , β ⋆ , δ ⋆ , where δ ⋆ < 1 n , privacy profile ε ω (δ). 1: Find ε ⋆ by solving Eq. ( 5) for ε with fixed δ = δ ⋆ and f (α ⋆ ) = β ⋆ 2: Find noise parameter ω * , e.g., using binary search:
+
+[Algorithm 2 Standard advantage calibration]
+ω * ← argmin ω∈Ω s.t. ε ω (δ ⋆ ) ≥ ε ⋆ 3: return ω *
+
+[Algorithm 2 Standard advantage calibration]
+Direct calibration to FPR/FNR amounts to, e.g., binary search, using calls to Algorithm 1: Algorithm 6 Direct FPR/FNR calibration using PLRVs (X, Y ) Require: α ⋆ , β ⋆ , PLRVs X ω , Y ω (see Algorithm 1 for a more detailed specification)
+
+[Algorithm 2 Standard advantage calibration]
+1: Find noise parameter ω * , e.g., using binary search:
+
+[Algorithm 2 Standard advantage calibration]
+ω * ← argmin ω∈Ω s.t. COMPUTEBETA(ω; α ⋆ ; X ω , Y ω ) ≥ β ⋆ 2: return ω * Attack risk measure Symbol Derived β ⋆ Advantage η ⋆ 1 -α ⋆ -η ⋆ Accuracy acc ⋆ 2(α ⋆ -acc ⋆ ) Positive predictive value / precision ppv ⋆ (α ⋆ -1)(ppv ⋆ -1) ppv ⋆ -1
+
+[Algorithm 2 Standard advantage calibration]
+Table 2 : Some supported risk measures for calibration with a fixed level of FPR α ⋆ , with the derivation of the corresponding level of FNR β ⋆ . Given α ⋆ and the derived β ⋆ , we can calibrate noise using the procedure in Section 3.2.

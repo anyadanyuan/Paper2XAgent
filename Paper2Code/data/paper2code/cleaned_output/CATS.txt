@@ -1,0 +1,59 @@
+[Abstract]
+Time series forecasting is crucial for applications across multiple domains and various scenarios. Although Transformers have dramatically advanced the landscape of forecasting, their effectiveness remains debated. Recent findings have indicated that simpler linear models might outperform complex Transformer-based approaches, highlighting the potential for more streamlined architectures. In this paper, we shift the focus from evaluating the overall Transformer architecture to specifically examining the effectiveness of self-attention for time series forecasting. To this end, we introduce a new architecture, Cross-Attention-only Time Series transformer (CATS), that rethinks the traditional transformer framework by eliminating self-attention and leveraging cross-attention mechanisms instead. By establishing future horizon-dependent parameters as queries and enhanced parameter sharing, our model not only improves long-term forecasting accuracy but also reduces the number of parameters and memory usage. Extensive experiment across various datasets demonstrates that our model achieves superior performance with the lowest mean squared error and uses fewer parameters compared to existing models. The implementation of our model is available at: https://github.com/dongbeank/CATS.
+
+[Cross -Attention]
+Learnable Queries
+
+[Cross -Attention]
+To address these challenges while preserving the advantages of Transformer architectures, we propose the Cross-Attention-only Time Series transformer (CATS), depicted in Fig. 3d . Our approach removes all self-attention layers and focuses solely on cross-attention, aiming to better capture temporal dependencies while maintaining the structural advantages of the transformer architecture.
+
+[Cross -Attention]
+In the following section, we will introduce our CATS model in detail, explaining our key innovations including a novel use of cross-attention, efficient parameter sharing, and adaptive masking techniques.
+
+[Cross -Attention]
+4 Proposed Methodology By focusing solely on cross-attention, our approach allows us to maintain the periodic properties of time series, which self-attention, with its permutation-invariant and anti-order characteristics, struggles to capture. Furthermore, we leverage advanced architectural designs of time series transformers, such as patching [14] , which linear models cannot utilize. The following subsections provide detailed descriptions of each component of our CATS model, explaining how these elements work together to address the challenges of time series forecasting.
+
+[Cross -Attention]
+Cross-Attention via Future as Query Similar to self-attention, the cross-attention mechanism employs three elements: key, query, and value. The distinctive feature of cross-attention is that the query originates from a different source than the key or value. Generally, the query component aims to identify the most relevant information among the keys and uses it to extract crucial data from the values [1, 27]. In the realm of time series forecasting, where predictions are often made for a specific target horizon-such as forecasting 10 steps ahead. Therefore, within this concept of forecasting, we argue that each future horizon should be regarded as a question, i.e., an independent query.
+
+[Cross -Attention]
+To implement this, we establish horizon-dependent parameters as learnable queries. As shown in Fig. 4 , we begin by creating parameters for the specified forecasting horizon. For each of these virtualized parameters, we assign a fixed number of parameters to represent the corresponding horizon as learnable queries q. For example, q i is a horizon-dependent query at L + i. When patching is applied, these queries are then processed independently; each learnable query q ∈ R P is first fed into the embedding layer, and then fed into the multi-head attention with the embedded input time series patches as the key and value.
+
+[Cross -Attention]
+Based on these new query parameters, we can utilize a cross-attention-only structure in the decoder, resulting in an advantage in efficiency. In Pyraformer. However, since these two models have an encoder-decoder and a relatively huge amount of parameters, they require 10x and 4x computational times than ours, respectively.
+
+[Cross -Attention]
+Parameter Sharing across Horizons One of the strongest benefits of cross-attention via future horizon as a query q is that each cross-attention is only calculated on the values from a single forecasting horizon and the input time series. Mathematically, for a prediction of future value xL+i can be expressed as a function solely dependent on the past samples X = [x 1 , ..., x L ] and q i , independent of q j for all i ̸ = j or i and j are not in the same patch.
+
+[Cross -Attention]
+This independent forecasting mechanism offers a notable advantage; a higher level of parameter sharing. As demonstrated in [14] , significant reductions in the required number of parameters can be achieved in time series forecasting through parameter sharing between inputs or patches, enhancing computational efficiency. Regarding this, we propose parameter sharing across all possible layers -the embedding layer, multi-head attention, and projection layer -for every horizon-dependent query q. In other words, all horizon queries q 1 , . . . , q T or q 1 , . . . , q N T share the same embedding layer used for the input time series x 1 , . . . , x L or patches p 1 , . . . , p N L before proceeding to the cross-attention layer, respectively. Furthermore, to maximize the parameter sharing, we also propose cross-dimension sharing that uses the same query parameters for all dimensions.
+
+[Cross -Attention]
+For the multi-head attention and projection layers, we apply the same algorithm across horizons. Notably, unlike the approach in PatchTST [14] , we also share the projection layer for each prediction. Specifically, PatchTST, being an encoder-only model, employs a fully connected layer as the projection layer for the encoder outputs P ∈ R D×N L , resulting in (D × N L ) × T parameters. In contrast, our model first processes raw queries q = [q 1 , . . . , q N T ] ∈ R P ×N T . These queries are then embedded through the cross-attention mechanism, resulting in Q = [q 1 , . . . , q N T ] ∈ R D×N T . The final projection uses shared parameters W ∈ R P ×D , producing an output W Q ∈ R P ×N T . Thus, our number of parameters for this projection becomes P × D, which is not proportionally increasing to T . This approach significantly reduces time complexity during both the training and inference phases. In Table 3 , we outline the impact of parameter sharing across different forecasting horizons. In contrast to the model without parameter sharing, which exhibits a rapid increase in parameters as the forecasting horizon extends, our model, which shares all layers including the projection layer, maintains a nearly consistent number of parameters.
+
+[Cross -Attention]
+Additionally, all operations, including embedding and multi-head attention, are performed independently for each learnable query. This implies that the forecast for a specific horizon does not depend on other horizons. Such an approach allows us to generate distinct attention maps for each forecasting horizon, providing a clear understanding of how each prediction is derived. Please refer to Section 5.5.
+
+[Explaining Periodic Patterns through Cross-Attention]
+As noted in Section 4.2, in our proposed model, all operations including embedding and multi-head attention are performed independently for each learnable query. In other words, the forecast for a specific horizon does not depend on other horizons. This approach helps us better understand how each prediction is derived. Therefore, in this subsection, we visualize how the proposed model understands the periodic properties.
+
+[Explaining Periodic Patterns through Cross-Attention]
+To provide an easy understanding, we here consider a simple time series forecasting task with data that consists of two independent signals as follows:
+
+[Explaining Periodic Patterns through Cross-Attention]
+EQUATION
+
+[Explaining Periodic Patterns through Cross-Attention]
+y(t) = +k if t ≡ 0 (mod S) -k if t ≡ 1 2 S (mod S).
+
+[Explaining Periodic Patterns through Cross-Attention]
+(
+
+[Explaining Periodic Patterns through Cross-Attention]
+EQUATION
+
+[Explaining Periodic Patterns through Cross-Attention]
+For prediction, we use an input sequence length L = 48 and a forecasting horizon T = 72 with signals x(t) and y(t) are defined with τ = 24, S = 8, and k = 5. The patch length is set to 4 without overlapping to elucidate the distinct periodic components with 2 attention heads. In Fig. 6 , we illustrate a score map (12×18) of the cross-attention from the trained CATS. Since both patch length and stride are set to 4, each patch will contain exactly one shock value. We observe that the cross-attentions capture the shocks within the signal and the periodicity of the signal in Fig. 6a and Fig. 6b , respectively. Fig. 6a shows that patches an even number of steps before the current patch contain the shocks of the same direction, resulting in higher attention scores, while odd-numbered steps have lower scores. Moreover, the correlation over 24 steps is clearly demonstrated in patches spaced by multiples of 6 steps, as shown in Fig. 6b . This periodic pattern ensures that the attention mechanism effectively captures the periodicity in x(t), reflecting the model's ability to leverage this periodic information for more accurate predictions. In Appendix, we provide a detailed explanation.  and (c, d ) the two pairs with the highest attention scores. We predict 96 steps with input sequence length 96 on ETTm1. The input patches consist of four patches of 24 lengths and one padding patch.
+
+[Explaining Periodic Patterns through Cross-Attention]
+As shown in Fig. 7c and 7d , the patches with high attention scores exhibit similar temporal patterns, demonstrating the ability of CATS to detect sequential and periodic patterns.

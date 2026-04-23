@@ -1,0 +1,65 @@
+[Abstract]
+The rapid development of Large Language Models (LLMs) has substantially expanded the range of tasks they can address. In the field of Natural Language Processing (NLP), researchers have shifted their focus from conventional NLP tasks (e.g., sequence tagging and parsing) towards tasks that revolve around aligning with human needs (e.g., brainstorming and email writing). This shift in task distribution imposes new requirements on evaluating these aligned models regarding generality (i.e., assessing performance across diverse scenarios), flexibility (i.e., examining under different protocols), and interpretability (i.e., scrutinizing models with explanations). In this paper, we propose a generative judge with 13B parameters, AUTO-J, designed to address these challenges. Our model is trained on user queries and LLM-generated responses under massive real-world scenarios and accommodates diverse evaluation protocols (e.g., pairwise response comparison and single-response evaluation) with well-structured natural language critiques. To demonstrate the efficacy of our approach, we construct a new testbed covering 58 different scenarios. Experimentally, AUTO-J outperforms a series of strong competitors, including both open-source and closed-source models, by a large margin. We also provide detailed analysis and case studies to further reveal the potential of our method and make a variety of resources public at https://github.com/GAIR-NLP/auto-j.
+
+[TRAINING AUTO-J]
+By integrating data from both pairwise and single-response evaluations, we train our model to seamlessly toggle between diverse evaluation protocols simply by applying the corresponding prompts.
+
+[TRAINING AUTO-J]
+To lessen the positional bias (Wang et al., 2023a) in pairwise comparison, we apply a simple data augmentation trick. For each pairwise training sample, we swap the order of two responses in the input and alternate the "Response 1" and "Response 2" in the evaluation judgment. Since this doubles the pairwise data, we balanced the dataset by duplicating each single-response samples as well.
+
+[TRAINING AUTO-J]
+We train AUTO-J from LLaMA-2-13B-chat (Touvron et al., 2023b) with the DeepSpeed (Rasley et al., 2020) library, Zero Redundancy Optimizer (ZeRO) (Rajbhandari et al., 2020; Ren et al., 2021) Stage 3, gradient-checkpointing (Chen et al., 2016) and FlashAttention (Dao et al., 2022; Dao, 2023) on 8 NVIDIA A100 GPUs. We use the bfloat16 (BF16) and tfloat32 (TF32) mix computation precision options to further optimize training and efficiency. The model is trained for 5 epochs (675 parameter update steps in total) and we save checkpoints for every 50 steps. We use AdamW (Loshchilov & Hutter, 2017) as our optimizer with β 1 = 0.9, β 2 = 0.95 and weight decay of 0.1. We use a peak learning rate 1e-5 with 3% warmup steps and cosine learning rate decay to 0, and set the batch size to 64 and maximum sequence length to 4,096. The loss is only calculated on the output end.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+In this section we describe in detail the training process of the scenario classifier mentioned in §3.2.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+We model the scenario classification task as a generation task.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+The classifier are required to generate only the scenario name when given the query, with the prompt as "Identify the scenario for the user's query, output 'default' if you are uncertain.\n\nQuery:\n\n{input}\n\nScenario:" (the "default" scenario in the prompt is the early naming for "others" scenario).
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+In general, the training involves three steps:
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+1. We first brainstorm about 10 seed queries for each scenario with the help of ChatGPT, and train a model that can directly output the scenario name when given a query as a conditional generation task on this small synthetic dataset.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+2. Using the trained model, we conducted an initial classification for queries in Chatbot Arena Conversations and ShareGPT4 as they cover much more scenarios than other datasets. Based on this preliminary classification, we randomly select up to 50 queries from each scenario for a secondary manual validation, involving data cleaning and correcting misclassified labels.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+3. We combine the newly-collected dataset and the small synthetic dataset in step 1, and retrain our final classifier. We divide queries in each scenario in an 8:2 train/test split (Tab. 7). The accuracy and F1 of the final classifier on test set are 72.55 and 74.12, respectively.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+Our scenario classifier is trained from LLaMA-2-13B (Touvron et al., 2023b) , and we set the max sequence length as 2,048, and the max length for query as 2,048-50=1,998 both in training and inference. If a query Q with length L exceeds that limit, we truncate it from the middle and replace the dropped part with a "..." since the front and end of the sequence usually contain more important information for identifying scenario of the (such as the user's instruction):
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+Q 1:L → [Q 1:999 ; ...; Q L-1000:L ].
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+We train the scenario classifier for 3 epochs on the training set, and set the batch size as 64. Without warmup steps, we set the initial learning rate to 1e-5 and cosine decaying to 0 by the end of training.
+
+[B TRAINING DETAILS OF SCENARIO CLASSIFIER]
+The optimizer is AdamW with β 1 = 0.9, β 2 = 0.95 as in training AUTO-J, and we also use the speedup and GPU memory saving techniques like DeepSpeed Zero 3, BF16, TF32, and gradientcheckpointing. The loss is only calculated on the output end as well. 
+
+[F TRAINING DATA STATISTICS]
+This section shows the train data statistics . These are supplemental details of §3.3. Here are the instructions you should follow:
+
+[F TRAINING DATA STATISTICS]
+1. You only need to write critiques on its shortcomings; there's no need to comment on its strengths. The critiques should be as specific as possible by quoting details from the response and query, and don't include the criterion name.
+
+[F TRAINING DATA STATISTICS]
+Table 12 : Prompt used when collecting raw output for single-response evaluation from GPT-4.
+
+[F TRAINING DATA STATISTICS]
+Write a meta-critique by combining the following two critiques for a submitted response on a given user's query, and grade the response:
+
+[F TRAINING DATA STATISTICS]
+[BEGIN DATA] *** [Query]: {query} *** [Response]: {response} *** [Critique 1]: {critique 1} *** [Critique 2]: {critique 2} *** [END DATA]
+
+[F TRAINING DATA STATISTICS]
+You should give a meta-critique by merging the two critiques into a more comprehensive critique for the response in fluent language. After that, you should give a final rating for the response on a scale of 1 to 10 by strictly following this format: "[[rating]]", for example: "Rating: [[5] ]".
+
+[F TRAINING DATA STATISTICS]
+Table 13 : Prompt for asking GPT-4 to combine two critiques to a comprehensive critique and give out final rating.

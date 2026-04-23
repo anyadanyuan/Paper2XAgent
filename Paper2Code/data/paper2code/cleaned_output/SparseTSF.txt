@@ -1,0 +1,35 @@
+[Abstract]
+This paper introduces SparseTSF, a novel, extremely lightweight model for Long-term Time Series Forecasting (LTSF), designed to address the challenges of modeling complex temporal dependencies over extended horizons with minimal computational resources. At the heart of SparseTSF lies the Cross-Period Sparse Forecasting technique, which simplifies the forecasting task by decoupling the periodicity and trend in time series data. This technique involves downsampling the original sequences to focus on crossperiod trend prediction, effectively extracting periodic features while minimizing the model's complexity and parameter count. Based on this technique, the SparseTSF model uses fewer than 1k parameters to achieve competitive or superior performance compared to state-of-the-art models. Furthermore, SparseTSF showcases remarkable generalization capabilities, making it wellsuited for scenarios with limited computational resources, small samples, or low-quality data.
+
+[Generalization Ability of the SparseTSF Model]
+The Sparse technique enhances the model's ability to extract periodic features from data. Therefore, the generalization capability of a trained SparseTSF model on different datasets with the same principal periodicity is promising. To investigate this, we further studied the cross-domain generalization performance of the SparseTSF model (i.e., training on a dataset from one domain and testing on a dataset from another). Specifically, we examined the performance from ETTh2 to ETTh1, which are datasets of the same type but collected from different machines, each with 7 variables. Additionally, we explored the performance from Electricity to ETTh1, where these datasets originate from different domains and have a differing number of variables (i.e., Electricity has 321 variables). On datasets with different numbers of variables, models trained with traditional non-CI strategies (like Informer) cannot transfer, whereas those trained with CI strategies (like PatchTST) can, due to the decoupling of CI strategies from channel relationships. These datasets all have a daily periodicity, i.e., a prior predominant period of w = 24. Therefore, the SparseTSF model exhibits outstanding generalization capabilities. This characteristic is highly beneficial for the application of the SparseTSF model in scenarios involving small samples and low-quality data.
+
+[Differences Compared to Existing Methods]
+The Sparse technique proposed in this paper involves downsampling/upsampling to achieve periodicity/trend decoupling. It may share a similar idea with existing methods, as downsampling/upsampling and periodic/trend decomposition techniques are prevalent in related literature nowadays. Specifically, we provide a detailed analysis of the differences with respect to N-HiTS (Challu et al., 2023) and OneShotSTL (He et al., 2023) as follows, and present the comparison results in Appendix D.4.
+
+[Differences Compared to Existing Methods]
+SparseTSF Compared to N-HiTS N-HiTS incorporates novel hierarchical interpolation and multi-rate data sampling techniques to achieve better results (Challu et al., 2023) .
+
+[Differences Compared to Existing Methods]
+The downsampling and upsampling techniques proposed in SparseTSF are indeed quite different from those used in N-HiTS, including:
+
+[Differences Compared to Existing Methods]
+• The downsampling and upsampling in SparseTSF occur before and after the model's prediction process, respectively, whereas N-HiTS conducts these operations within internally stacked modules.
+
+[Differences Compared to Existing Methods]
+• SparseTSF's downsampling involves resampling by a factor of w to w subsequences of length L/w, which is technically equivalent to matrix reshaping and transposition, whereas N-HiTS employs downsampling through max-pooling.
+
+[Differences Compared to Existing Methods]
+• SparseTSF's upsampling involves transposing and reshaping the predicted subsequences back to the original sequence, whereas N-HiTS achieves upsampling through interpolation.
+
+[Differences Compared to Existing Methods]
+SparseTSF Compared to OneShotSTL Seasonal-trend decomposition (STD) is a classical and powerful tool for time series forecasting, and OneShotSTL makes a great contribution to advancing the lightweight long-term forecasting process, featuring fast, lightweight, and powerful capabilities (He et al., 2023) . However, SparseTSF differs significantly from OneShotSTL in several aspects:
+
+[Differences Compared to Existing Methods]
+• SparseTSF is a neural network model while OneShot-STL is a non-neural network method focused on online forecasting.
+
+[Differences Compared to Existing Methods]
+• OneShotSTL minimizes residuals and calculates trend and seasonal subseries separately from the original sequence with lengths of L, whereas our SparseTSF resamples the original sequence into w subseries of length L/w with a constant period w.
+
+[Differences Compared to Existing Methods]
+• OneShotSTL accelerates inference by optimizing the original computation for online processing, while SparseTSF achieves lightweighting by using parametersharing linear layers for prediction across all subseries.

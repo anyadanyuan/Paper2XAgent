@@ -1,0 +1,38 @@
+[Abstract]
+The increasing amount of graph data places requirements on the efficient training of graph neural networks (GNNs). The emerging graph distillation (GD) tackles this challenge by distilling a small synthetic graph to replace the real large graph, ensuring GNNs trained on real and synthetic graphs exhibit comparable performance. However, existing methods rely on GNN-related information as supervision, including gradients, representations, and trajectories, which have two limitations. First, GNNs can affect the spectrum (i.e., eigenvalues) of the real graph, causing spectrum bias in the synthetic graph. Second, the variety of GNN architectures leads to the creation of different synthetic graphs, requiring traversal to obtain optimal performance. To tackle these issues, we propose Graph Distillation with Eigenbasis Matching (GDEM), which aligns the eigenbasis and node features of real and synthetic graphs. Meanwhile, it directly replicates the spectrum of the real graph and thus prevents the influence of GNNs. Moreover, we design a discrimination constraint to balance the effectiveness and generalization of GDEM. Theoretically, the synthetic graphs distilled by GDEM are restricted spectral approximations of the real graphs. Extensive experiments demonstrate that GDEM outperforms state-of-the-art GD methods with powerful crossarchitecture generalization ability and significant distillation efficiency. Our code is available at https://github.com/liuyang-tian/GDEM.
+
+[The Proposed Method: GDEM]
+In this section, we introduce the proposed method GDEM. Compared with previous methods, e.g., gradient matching (Figure 2(a) ) and distribution matching (Figure 2 (b)), GDEM, illustrated in 2(c), does not rely on specific GNNs, whose distillation process can be divided into two steps: (1) Matching the eigenbasis and node features between the real and synthetic graphs. (2) Constructing the synthetic graph by using the synthesized eigenbasis and real spectrum. 
+
+[The Proposed Method: GDEM]
+𝑢 # 𝑢 # ⊺ 𝑋 𝑋 ⊺ 𝑢 # ! 𝑢 # ! ⊺ 𝑋 ! 𝑋 ! ⊺ (c) Eigenbasis matching
+
+[Final Objective and Synthetic Graph Construction]
+In summary, the overall loss function of GDEM is formulated as the weighted sum of three regularization terms:
+
+[Final Objective and Synthetic Graph Construction]
+EQUATION
+
+[Final Objective and Synthetic Graph Construction]
+where α, β, and γ are the hyperparameters. The pseudocode of GDEM is presented in Algorithm 1.
+
+[Final Objective and Synthetic Graph Construction]
+Upon minimizing the total loss function, the outputs of GDEM are the eigenbasis and node features of the synthetic  and L d via Eqs. 5, 6, and 8 Compute
+
+[Final Objective and Synthetic Graph Construction]
+Algorithm 1 GDEM for Graph Distillation Input: Real graph G = (A, X, Y) with eigenvalues {λ i } K i=1 and eigenbasis U K Init: Synthetic graph G ′ with eigenbasis U ′ K , node fea- tures X ′ , and labels Y ′ for t = 1 to T do Compute L e , L o ,
+
+[Final Objective and Synthetic Graph Construction]
+L total = αL e + βL d + γL o if t%(τ 1 + τ 2 ) < τ 1 then Update U ′ K ← U ′ K -η 1 ∇ U ′ K L total else Update X ′ ← X ′ -η 2 ∇ X ′ L total end if end for Compute A ′ = K k=1 (1 -λ k )u ′ k u ′ k ⊤ Return: A ′ , X ′
+
+[Final Objective and Synthetic Graph Construction]
+graph. However, the data remains incomplete due to the absence of the graph spectrum. Essentially, the graph spectrum encodes the global shape of a graph (Martinkus et al., 2022) . Ideally, if the synthetic graph preserves the distribution of the real graph, they should have similar spectrums. Therefore, we directly replicate the real spectrum for the synthetic graph to construct its Laplacian matrix or adjacency matrix:
+
+[Final Objective and Synthetic Graph Construction]
+L ′ = K k=1 λ k u ′ k u ′ k ⊤ , A ′ = K k=1 (1 -λ k )u ′ k u ′ k ⊤ . (10)
+
+[Cross-architecture Generalization]
+We evaluate the generalization ability of the synthetic graphs distilled by four different GD methods, including GCOND, SFGC, SGDD, and GDEM. In particular, each synthetic graph is evaluated by six GNNs, and the average accuracy and variance of the evaluation results are shown in Table 3 .
+
+[Cross-architecture Generalization]
+First, GDEM stands out by exhibiting the highest average accuracy across datasets except for Ogbn-arxiv, indicating that the synthetic graphs distilled by GDEM can consistently benefit a variety of GNNs. Moreover, GDEM significantly reduces the performance gap between different GNNs. For example, the variance of GCOND is 2-6 times higher than that of GDEM. On the other hand, SGDD broadcasts the structural information to synthetic graphs and exhibits better generalization ability than GCOND, implying that preserving graph structures can improve the generalization of synthetic graphs. SFGC proposes structure-free distillation. However, this strategy may lead to restricted application scenarios due to the lack of explicit graph structures. 

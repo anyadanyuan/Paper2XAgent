@@ -1,0 +1,173 @@
+[Abstract]
+How to balance the learning 'sensitivity-stability' upon new task training and memory preserving is critical in CL to resolve catastrophic forgetting. Improving model generalization ability within each learning phase is one solution to help CL learning overcome the gap in the joint knowledge space. Zeroth-order loss landscape sharpness-aware minimization is a strong training regime improving model generalization in transfer learning compared with optimizer like SGD. It has also been introduced into CL to improve memory representation or learning efficiency. However, zeroth-order sharpness alone could favors sharper over flatter minima in certain scenarios, leading to a rather sensitive minima rather than a global optima. To further enhance learning stability, we propose a Continual Flatness (C-Flat) method featuring a flatter loss landscape tailored for CL. C-Flat could be easily called with only one line of code and is plug-and-play to any CL methods. A general framework of C-Flat applied to all CL categories and a thorough comparison with loss minima optimizer and flat minima based CL approaches is presented in this paper, showing that our method can boost CL performance in almost all cases.
+
+[Method]
+Our solution addresses the learning sensitivity-stability dilemma in CL by improving model generalization for joint learning knowledge obtained from different catalogues domains or tasks. Moreover, a general but stronger optimization method enhanced by the latest gradient landscape flatness is proposed as a 'plug-and-play' tool for any CL approach.
+
+[Method]
+Loss landscape flatness. Let B(θ, ρ) = {θ ′ : ∥θ ′ -θ∥ < ρ} denotes the neighborhood of θ with radius ρ > 0 in the Euclidean space Θ ⊂ R d , the zeroth-order sharpness at point θ is commonly defined by the maximal training loss difference within its neighborhood B(θ, ρ):
+
+[Method]
+EQUATION
+
+[Method]
+where l S (θ) denotes the loss of an arbitrary model with parameter θ on any dataset S with an oracle loss function l(•). The zeroth-order sharpness R 0 ρ (θ) regularization can be directly applied to restrain the maximal neighborhood training loss:
+
+[Method]
+EQUATION
+
+[Method]
+However, for some fixed ρ, local minima with a lower loss does not always have a lower major hessian eigenvalue [70] , which equals to the neighborhood curvature. It means that zeroth-order sharpness optimizer may goes to a sharper suboptimal than to the direction of a flatter global optimal with better generalization ability.
+
+[Method]
+Recently, first-order gradient landscape flatness is proposed as a measurement of the maximal neighborhood gradient norm, which reflects landscape curvature, to better describe the smoothness of the loss landscape:
+
+[Method]
+EQUATION
+
+[Method]
+Unlike zeroth-order sharpness that force the training converging to a local minimal, first-order flatness alone constraining on the neighborhood smoothness can not lead to an optimal with minimal loss.
+
+[Method]
+To maximize the generalization ability of loss landscape sharpness for continual learning task, we propose a zeroth-first-order sharpness aware optimizer C-Flat for CL. Considering the data space, model or blocks to be trained are altered regarding the training phase and CL method, (as detailed in the next subsection), we define the the C-Flat loss as follows:
+
+[Method]
+EQUATION
+
+[Method]
+with the minimization objective:
+
+[Method]
+EQUATION
+
+[Method]
+where l R 0 ρ S (θ) is constructed to replace the original CL loss, while R 1 ρ (θ) further regularizes the smoothness of the neighborhood, and hyperparameter λ is to balance the influence of R 1 ρ as an additional regularization to loss function l. Hence, the local minima within a flat and smooth neighborhood is calculated for a generalized model possessing both old and new knowledge.
+
+[Method]
+Optimization. In our work, the two regularization terms in the proposed C-Flat are resolved correspondingly in each iteration. Assuming the loss function l(•) is differentiable and bounded, the
+
+[Method]
+EQUATION
+
+[Method]
+And the gradient of the first-order flatness regularization ∇R 1 ρ (θ T ) can be approximated by
+
+[Method]
+EQUATION
+
+[Method]
+with θ T 1 = θ T + ρ • ∇∥∇l S (θ T )∥ 2 ∥∇∥∇l S (θ T )∥ 2 ∥ 2 where ∇∥∇l S (θ T )∥ 2 = ∇ 2 l S (θ T ) • ∇l S (θ T ) ∥∇l S (θ T )∥ 2 .
+
+[Method]
+The optimization is detailed in Appendix algorithm 1. Note that ∇l is the gradient of l with respect to θ through this paper, and instead of the expensive computation of Hessian matrix ∇ 2 l, Hessian-vector product calculation is used in our algorithm, where the time and especially space complexity are greatly reduced to o(n) using 1 forward and 1 backward propagation. Thus, the overall calculation in one iteration takes 2 forward and 4 backward propagation in total.
+
+[Method]
+Theoretical analysis. Given R 0 ρ (θ) measuring the maximal limit of the training loss difference, the first-order flatness is its upper bound by nature. Denoting θ + ϵ ∈ B(θ, ρ) the local maximum point, a constant ϵ * ∈ [0, ϵ] exists according to the mean value theorem that
+
+[Method]
+EQUATION
+
+[Method]
+Assuming the loss function is twice differentiable, bounded by M , obeys the triangle inequality, its gradient has bounded variance σ 2 , and both the loss function and its second-order gradient are β-Lipschitz smooth, we can prove that, according to [3, 63] , C-Flat converges in all tasks with η ≤ 1/β, ρ ≤ 1/4β, and
+
+[Method]
+EQUATION
+
+[Method]
+)
+
+[Method]
+where n T is the total iteration numbers of task T , and b is the batch size.
+
+[Method]
+Upper Bound. Let ∇ 2 l S (θ * ) denotes the Hessian matrix at local minimum θ * , its maximal eigenvalue λ max (∇ 2 l S (θ * )) is a proper measure of the landscape curvature. The first-order flatness is proven to be related to the maximal eigenvalue of the Hessian matrix as
+
+[Method]
+R 1 ρ (θ * ) = ρ 2 • λ max (∇ 2 l S (θ * ))
+
+[Method]
+, thus the C-Flat regularization can also be used as an index of model generalization ability, with the following upper bound:
+
+[Method]
+EQUATION
+
+[A Unified CL Framework Using C-Flat]
+This subsection presents an unified CL framework using C-Flat with applications covering Class Incremental Learning (CIL) approaches. To keep focus, the scope of our study is limited in CIL task, which is the most intractable CL scenarios that seek for a lifelong learning model for sequentially arriving class-agnostic data. Most CIL approaches belong to three main families, Memory-based, Regularization-based and Expansion-based methods.
+
+[A Unified CL Framework Using C-Flat]
+Memory-based methods store samples from the previous phases within the memory limit, or produce pseudo-samples by generative approaches to extend the current training data space, thus a memory replay strategy is used to preserve the seen class features with ŜT = S T ∪ Sample t<T . iCaRL is one of the early works. It learns classifiers and a feature representation simultaneously, and preserves the first few most representative exemplars according to Nearest-Mean-of-Exemplars Classification. Thus a loss function l ŜT = l CE ŜT + l KL ŜT combining both cross entropy for the current task and a knowledge distillation loss for the previous classes is introduced to balance the learning sensitivity and model generalization to the previous tasks.
+
+[A Unified CL Framework Using C-Flat]
+Solution: for memory-based method, including, the C-Flat can be easily applied to these scenarios by reconstruct the oracle loss function with its zeroth-and first-order flatness measurement as eq. 11, and trained with algorithm 1 using data set extended with the previous exemplars.
+
+[A Unified CL Framework Using C-Flat]
+EQUATION
+
+[A Unified CL Framework Using C-Flat]
+Regularization-based methods seeks for a apply regularization on the model develop to preserver the learnt knowledge. For instance, WA introduces weight aligning on the final inference part to balance the old and new classes. Denoting ϕ the feature learning layers of the model, ψ = [ψ old , ψ new ] the decision head for all classes consisting of two branches for the old and new seen data classes, the output is corrected to
+
+[A Unified CL Framework Using C-Flat]
+f (x) = [ψ old (ϕ(x)), γ • ψ new (ϕ(x))],
+
+[A Unified CL Framework Using C-Flat]
+where γ is the fraction of average norm of ψ old , ψ new of all classes.
+
+[A Unified CL Framework Using C-Flat]
+Gradient Projection Memory (GPM) is another main regularization based group, introducing explicit align the gradient direction to new knowledge learning. It stores a minimum set of bases of the Core Gradient Space as Gradient Projection Memory, thus gradient steps are only taken in its orthogonal direction to learn the new features without forgetting the core information from the previous phases. FS-DGPM further improves this method by updating model parameter along the aligned orthogonal gradient at the zeroth-order sharpness minima in dynamic GMP space.
+
+[A Unified CL Framework Using C-Flat]
+Solution: for regularization-based approaches, the same plug-and-play strategy can be used to reconstruct the loss function as eq. 11, and optimized by algorithm 1.
+
+[A Unified CL Framework Using C-Flat]
+An alternative solution for the gradient-based methods like GPM and the improved FS-DGPM, is to introduce C-Flat optimization at the gradient alignment stage, so that the orthogonal gradient at a flatter minima is used to ensure that the training can cross over the knowledge gap between different data categories. The implementation of our C-Flat-GPM is detailed in Appendix algorithm 2.
+
+[A Unified CL Framework Using C-Flat]
+Expansion-based methods explicitly construct task-specific parameters to resolve the new class learning and inference problem. For instance, Memory-efficient Expandable Model (Memo) decomposes the embedding module into deep layers and shallow layers that ϕ = ϕ f (ϕ g ), where ϕ f , ϕ g correspond to the specialized block for different tasks and the generalized block that can be shared during training phases. An additional block ϕ new f is added to the deep layers for specified feature extraction for the new classes, where the model can be reconstructed as
+
+[A Unified CL Framework Using C-Flat]
+f T = ψ T ([ϕ T -1 f (ϕ g ), ϕ new f (ϕ g )])
+
+[A Unified CL Framework Using C-Flat]
+. Thus the new model training is focusing on the task specified component while the shared shallow layers are frozen with loss function l M emo Foster uses KL-based loss function to regularize the three combinations of old and new blocks for a stable performance on the previous data. It also introduces an effective redundant parameters and feature pruning strategy to maintain the single backbone model using knowledge distillation. DER follows the same framework, and introduces an auxiliary classifier and related loss item to encourage the model to learn diverse and discriminate features for novel concepts.
+
+[A Unified CL Framework Using C-Flat]
+ŜT = l CE ŜT (ψ T ([ϕ T -1 f (ϕ g ), ϕ new f (ϕ g )]))).
+
+[A Unified CL Framework Using C-Flat]
+Solution: for expansion-based approaches, the plug-and-play strategy is still available. The C-Flat loss can be reformed with the reconstructed model as eq. 12. Thus C-Flat optimization using algorithm 1 is applied onto the first stage, where the new constructed block are optimized, while the generalized blocks are kept frozen. The final model is obtained after post-processing.
+
+[A Unified CL Framework Using C-Flat]
+EQUATION
+
+[A Unified CL Framework Using C-Flat]
+To conclude, C-Flat can be easily applied to any CL method with reconstructed loss function, and thus trained with the corresponding optimize as shown in algorithm 1. Dedicated design using C-Flat like for the GPM family is also possible wherever flat minima is required.
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+Input: Training set ŜT , parameter θ T = θ T -1 , loss l, learning rate η 1 , η 2 , basis matrix M and significance Λ from replay buffer. while θ T not converge, do Sample batch B T Compute perturbation ϵ c using C-Flat optimization Update basis significance:
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+Λ = Λ -η 1 • ▽ Λ l B T (θ T + ϵ c ) Update model parameter: θ T = θ T -η 2 • (I -MΛM ) ▽ l B T (θ T + ϵ c )
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+Update M and replay buffer. end while return Model parameter θ T Claim 1: with Assumptions 1, the convergency of zeroth-sharpness with batch size b is guaranteed [3] by
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+EQUATION
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+hence, the zeroth-order part of C-Flat is bounded:
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+EQUATION
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+Lemma 1: let ξ tr (θ) = l tr (f T (θ), f T (θ * )), with Assumptions 1, the first-order part is bounded by
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+EQUATION
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+Theorem 1: with Assumptions 1, by combining the zeroth-and first-order parts, we can prove C-Flat converges in all tasks that,
+
+[Algorithm 2 C-Flat for GPM-family at T > 1]
+EQUATION

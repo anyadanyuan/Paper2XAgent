@@ -1,0 +1,44 @@
+[Abstract]
+Given a graph with textual attributes, we enable users to 'chat with their graph': that is, to ask questions about the graph using a conversational interface. In response to a user's questions, our method provides textual replies and highlights the relevant parts of the graph. While existing works integrate large language models (LLMs) and graph neural networks (GNNs) in various ways, they mostly focus on either conventional graph tasks (such as node, edge, and graph classification), or on answering simple graph queries on small or synthetic graphs. In contrast, we develop a flexible question-answering framework targeting real-world textual graphs, applicable to multiple applications including scene graph understanding, common sense reasoning, and knowledge graph reasoning. Toward this goal, we first develop a Graph Question Answering (GraphQA) benchmark with data collected from different tasks. Then, we propose our G-Retriever method, introducing the first retrievalaugmented generation (RAG) approach for general textual graphs, which can be fine-tuned to enhance graph understanding via soft prompting. To resist hallucination and to allow for textual graphs that greatly exceed the LLM's context window size, G-Retriever performs RAG over a graph by formulating this task as a Prize-Collecting Steiner Tree optimization problem. Empirical evaluations show that our method outperforms baselines on textual graph tasks from multiple domains, scales well with larger graph sizes, and mitigates hallucination. Our codes and datasets are available at: https://github.com/XiaoxinHe/G-Retriever.
+
+[Graph Encoder]
+Question: What is the name of justin bieber brother?
+
+[Graph Encoder]
+Step 1: Indexing
+
+[B Experiment B.1 Implementation Settings]
+Experiments are conducted using 2 NVIDIA A100-80G GPUs. Each experiment is replicated four times, utilizing different seeds for each run to ensure robustness and reproducibility.
+
+[B Experiment B.1 Implementation Settings]
+Graph Encoder. We use Graph Transformer [37] as the GNN backbone. Our configuration employs 4 layers, each with 4 attention heads, and a hidden dimension size of 1024.
+
+[B.2 Details of Model Configurations]
+In our experiments, we consider three model configurations:
+
+[B.2 Details of Model Configurations]
+1) Inference-only: Using a frozen LLM for direct question answering with textual graph and question, see Figure 4 . • Zero-shot. In this approach, the model is given a textual graph description and a task description, and is immediately asked to produce the desired output. No additional examples or demonstrations are provided.
+
+[B.2 Details of Model Configurations]
+• Zero-CoT. Zero-shot Chain-of-thought (Zero-CoT) prompting [18] is a follow-up to CoT prompting [45] , which introduces an incredibly simple zero shot prompt by appending the words "Let's think step by step." to the end of a question.
+
+[B.2 Details of Model Configurations]
+• CoT-BAG. Build-a-Graph Prompting (BAG) [44] is a prompting technique that adds "Let's construct a graph with the nodes and edges first." after the textual description of the graph is explicitly given.
+
+[B.2 Details of Model Configurations]
+• KAPING. KAPING [1] is a zero-shot knowledge-augmented prompting method for knowledge graph question answering. It first retrieves triples related to the question from the graph, then prepends them to the input question in the form of a prompt, which is then forwarded to LLMs to generate the answer.
+
+[B.2 Details of Model Configurations]
+2) Frozen LLM w/ prompt tuning (PT): Keeping the parameters of the LLM frozen and adapting only the prompt. This includes soft prompt tuning (see Figure 5a ), GraphToken [31] , which is a graph prompt tuning method, and our G-Retriever method (see Figure5b). 3) Tuned LLM: Fine-tuning the LLM with LoRA. This includes standard fine-tuning of an LLM for downstream tasks using LoRA (see Figure 6a ) and G-Retriever with LoRA (see Figure 6b ). 
+
+[B.4 The Choice of Graph Encoder]
+In addition to the Graph Transformer [37] , we explore other GNNs as the graph encoder, such as GCN [17] and the GAT [43] . The comparative results of these models on the WebQSP and ExplaGraphs datasets are presented in Table 7 .
+
+[B.4 The Choice of Graph Encoder]
+Table 7 : Performance of different graph encoders on the WebQSP and ExplaGraphs datasets.
+
+[Graph Encoder]
+WebQSP ExplaGraphs GCN [17] 70.70 0.8394 GAT [43] 70.27 0.8430 Graph Transformer [37] 70.49 0.8516
+
+[Graph Encoder]
+The results demonstrate that our proposed method exhibits consistent robustness across different graph encoders. Notably, all three encoders -GCN, GAT, and GraphTransformer -demonstrate competitive and closely aligned performance on the WebQSP dataset, with Hit@1 scores of 70.70, 70.27, and 70.49, respectively. However, the performance differentiation becomes more pronounced on the ExplaGraphs dataset, where GraphTransformer exhibits a superior Hit@1 score of 0.8516, followed by GAT and GCN with scores of 0.8430 and 0.8394, respectively. This variation in performance across the datasets highlights the importance of encoder selection based on the specific characteristics and requirements of the dataset.

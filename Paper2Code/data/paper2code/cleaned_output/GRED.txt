@@ -1,0 +1,119 @@
+[Abstract]
+Graph neural networks based on iterative onehop message passing have been shown to struggle in harnessing the information from distant nodes effectively. Conversely, graph transformers allow each node to attend to all other nodes directly, but lack graph inductive bias and have to rely on ad-hoc positional encoding. In this paper, we propose a new architecture to reconcile these challenges. Our approach stems from the recent breakthroughs in long-range modeling provided by deep state-space models: for a given target node, our model aggregates other nodes by their shortest distances to the target and uses a linear RNN to encode the sequence of hop representations. The linear RNN is parameterized in a particular diagonal form for stable long-range signal propagation and is theoretically expressive enough to encode the neighborhood hierarchy. With no need for positional encoding, we empirically show that the performance of our model is comparable to or better than that of state-of-the-art graph transformers on various benchmarks, with a significantly reduced computational cost. Our code is open-source at https: //github.com/skeletondyh/GRED.
+
+[Architecture]
+In this section, we present the GRED layer, which is the building unit of our architecture. We start with some preliminary notations and then describe how our layer computes node representations. Finally, we analyze its computational complexity.
+
+[Architecture]
+Preliminaries. Let G = (V, E) denote an undirected and unweighted graph, where V denotes the set of nodes and E denotes the set of edges. For any two nodes v, u ∈ V , we use d(v, u) to represent the shortest distance between v and u, and we let d(v, v) = 0. For each target node v, we categorize all other nodes into different hops according to their shortest distances to v:
+
+[Architecture]
+N k (v) = {u | d(v, u) = k} for k = 0, 1, . . . , K (1)
+
+[Architecture]
+where K is the diameter of G or a hyper-parameter specified for the task in hand. {N k (v)} K k=1 can be obtained for every node v ∈ V by running the Floyd-Warshall algorithm (Floyd, 1962; Warshall, 1962) in parallel during data preprocessing and they are saved as masks.
+
+[Architecture]
+GRED layer. The input to the ℓ-th layer is a set of node representations {{h
+
+[Architecture]
+(ℓ-1) v ∈ R d | v ∈ V }}. To compute the output representation h (ℓ)
+
+[Architecture]
+v of this layer for a generic target node v, the layer first generates a representation for each set of nodes that share the same shortest distance to v (grey dashed boxes in Figure 2 ):
+
+[Architecture]
+EQUATION
+
+[Architecture]
+where {{•}} denotes a multiset, and AGG is an injective multiset function which we parameterize with two wide multilayer perceptrons (MLPs)1 , as usual in the literature (Zaheer et al., 2017; Xu et al., 2019) :
+
+[Architecture]
+EQUATION
+
+[Architecture]
+v,K ) naturally form a sequence according to the shortest distances. Then we encode this sequence using a linear RNN:
+
+[Architecture]
+s (ℓ) v,k = As (ℓ) v,k-1 + Bx (ℓ) v,K-k for k = 0, . . . , K (4)
+
+[Architecture]
+where s v,K of the RNN. Note that as in Figure 2(b) , different nodes have different sequences to describe their respective neighborhoods, and the RNN computations for all nodes can be batched. Although for a particular target node, some edges between hop k (k ≥ 1) and hop k + 1 are omitted by converting its neighborhood into a sequence, those edges would be taken into account for other target nodes. Therefore, considering all node representations as a whole, our model preserves the full graph structural information. We theoretically prove the expressiveness of the linear RNN and our model in Section 4.
+
+[Architecture]
+In our model, we parameterize the linear RNN in a particular diagonal form. Recall that, over the space of d s × d s non-diagonal real matrices, the set of non-diagonalizable (in the complex domain) matrices has measure zero (Bhatia, 2013) . Hence, with probability one over random initializations, A is diagonalizable, i.e., A = V ΛV -1 , where Λ = diag(λ 1 , . . . , λ ds ) ∈ C ds×ds gathers the eigenvalues of A, and columns of V are the corresponding eigenvectors. Equation ( 4) is then equivalent to the following diagonal recurrence in the complex domain, up to a linear transformation of the hidden state s which can be merged with the output projection W out (Equation ( 7)):
+
+[Architecture]
+s (ℓ) v,k = Λs (ℓ) v,k-1 + W in x (ℓ) v,K-k (5)
+
+[Architecture]
+where
+
+[Architecture]
+W in = V -1 B ∈ C ds×d .
+
+[Architecture]
+Unrolling the recurrence, we have:
+
+[Architecture]
+EQUATION
+
+[Architecture]
+Equation ( 6) can be thought of as a filter over the hops from the target node (Figure 1 ), and the filter weights are determined by the magnitudes of the eigenvalues Λ and the shortest distances to the target node. Following the modern literature on deep SSMs (Gupta et al., 2022; Gu et al., 2022b) , we directly initialize (without loss of generality) the system in the diagonal form and have Λ and W in as trainable parameters2 . To guarantee stability (the eigenvalues should be bounded by the unit disk), we adopt the recently introduced LRU initialization (Orvieto et al., 2023b ) that parameterizes the eigenvalues with log-transformed polar coordinates. Through directly learning eigenvalues Λ, our model learns to control the influence of signals from distant nodes on the target node, and thus addresses over-squashing caused by iterative 1-hop mixing. Another advantage of the diagonal linear recurrence is that it can leverage parallel scans (Blelloch, 1990; Smith et al., 2023) to avoid computing s sequentially on modern hardware.
+
+[Architecture]
+The output representation h
+
+[Architecture]
+(ℓ)
+
+[Architecture]
+v is generated by a non-linear transformation of the last hidden state s
+
+[Architecture]
+EQUATION
+
+[Architecture]
+where W out ∈ C d×ds is a trainable weight matrix and ℜ[•] denotes the real part of a complex-valued vector. While sufficiently wide MLPs with one hidden layer can parameterize any non-linear mapping, following again the literature on state-space models we choose to place here a gated linear unit (GLU) (Dauphin et al., 2017) : GLU(x) = (W 1 x) ⊙ σ(W 2 x), with σ the sigmoid function and ⊙ the element-wise product.
+
+[Architecture]
+The final architecture is composed of stacking several of such layers described above. In practice, we merge MLP 1 in Equation ( 3) with the non-linear transformation in Equation (7) of the previous layer (or of the feature encoder) to make the entire architecture more compact. We add skip connections to both the MLP and the LRU and apply layer normalization to the input of each residual branch. The overall architecture is illustrated in Figure 2 (a).
+
+[Architecture]
+Computational complexity. For each distance k, the complexity of aggregating the representations of nodes from N k (v) for every v ∈ V is that of one round of message passing, which is O(|E|). So the total complexity of Equation (3) for all nodes and distances is O(K|E|). In practice, since {N k (v)} K k=1 are pre-computed, Equation (3) for different k's can be performed in parallel to speed up the computation. The sequential computation of Equation ( 5) has total complexity O(K|V |). However, the linearity of the recurrence and the diagonal state transition matrix enable fast parallel scans to further improve the efficiency. In the above analysis, K is upper bounded by the graph diameter, which is usually much smaller than the number of nodes in real-world datasets. Even in the worst case where the diameter is large, we can keep the complexity of each layer tractable with a smaller constant K and still access the global information by ensuring the product of model depth and K is no smaller than the diameter. As a result of the compact and parallelizable architectural design, our model is highly efficient during training, as evidenced by our experimental results.
+
+[Model]
+v,k = Λs v,k-1 + W in x v,Kv-k , initialized at s v,-1 = 0 ∈ R ds for each v ∈ V . If d s ≥ (K + 1)d, then there exist Λ, W in such that the map R : (x v,0 , x v,1 , x v,2 , . . . , x v,K ) → s v,K (with zero right-padding if K v < K) is bijective. Moreover, if the set of RNN inputs has countable cardinality |X | = N ≤ ∞, then selecting d s ≥ d is sufficient
+
+[Model]
+for the existence of an injective linear RNN mapping R.
+
+[Model]
+The proof can be found in Appendix A. Here we assume zero-padding for K v < K (for mini-batch training). If some nodes coincidentally have zero-valued features, we can select a special token which is not in the dictionary of node features as the padding token. In practice, such an operation is not necessary because node representations are first fed into an MLP before the linear RNN, which can learn to shift them away from zero.
+
+[Model]
+Based on Theorem 4.1, and the well-known conclusion that the parameterization given by Equation (3) can express an injective multiset function (Xu et al., 2019) , we have the following corollary:
+
+[Model]
+Corollary 4.2. A wide enough GRED layer is capable of expressing an injective mapping of the list
+
+[Model]
+(h v , { {h u | u ∈ N 1 (v)} }, { {h u | u ∈ N 2 (v)} }, . . . , { {h u | u ∈ N Kv (v)} }) for each v ∈ V .
+
+[Model]
+This corollary in turn implies the following result:
+
+[Model]
+Corollary 4.3 (Expressiveness of GRED). When K > 1, one wide enough GRED layer is more expressive than any 1-hop message passing layer.
+
+[Model]
+Proof. We note that 1-WL assumes an injective mapping of 1-hop neighborhood, i.e., (
+
+[Model]
+h v , { {h u | u ∈ N 1 (v)} }), which
+
+[Model]
+is a special case of GRED (K = 1). When K > 1, the output of one GRED layer at node v, given the injectivity of the linear RNN and AGG, provides a more detailed characterization of its neighborhood than 1-hop message passing. This means that if v's 1-hop neighborhood changes, the output of the GRED layer will also be different. Therefore, GRED is able to distinguish any two non-isomorphic graphs that are distinguishable by 1-WL. Moreover, GRED can distinguish two non-isomorphic graphs which 1-WL cannot (see Figure 7 in the appendix for an example).
+
+[Model]
+We note that Feng et al. (2022) have already proven that multi-hop MPNNs are more expressive than 1-WL, but are upper bounded by 3-WL, which also applies to our model. Different from them, we achieve such expressiveness with a compact and parameter-efficient architecture (i.e., the number of parameters does not increase with K), which is of independent interest and bridges the gap between theory and practice.

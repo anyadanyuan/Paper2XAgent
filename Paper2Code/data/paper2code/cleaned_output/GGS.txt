@@ -1,0 +1,23 @@
+[Abstract]
+The ability to engineer novel proteins with higher fitness for a desired property would be revolutionary for biotechnology and medicine. Modeling the combinatorially large space of sequences is infeasible; prior methods often constrain optimization to a small mutational radius, but this drastically limits the design space. Instead of heuristics, we propose smoothing the fitness landscape to facilitate protein optimization. First, we formulate protein fitness as a graph signal then use Tikunov regularization to smooth the fitness landscape. We find optimizing in this smoothed landscape leads to improved performance across multiple methods in the GFP and AAV benchmarks. Second, we achieve state-of-the-art results utilizing discrete energy-based models and MCMC in the smoothed landscape. Our method, called Gibbs sampling with Graph-based Smoothing (GGS), demonstrates a unique ability to achieve 2.5 fold fitness improvement (with in-silico evaluation) over its training set. GGS demonstrates potential to optimize proteins in the limited data regime. Code: https://github.com/kirjner/GGS
+
+[METHOD]
+The following describes our method. Section 3.1 details the problem formulation. Next section 3.2 describes the procedure for training a smoothed model. Lastly, section 3.3 provides background on Gibbs With Gradients (GWG) which is adapted for protein optimization. The full algorithm, Gibbs sampling with Graph-based Smoothing (GGS), is presented in Algorithm 1.
+
+[B.1 CNN ARCHITECTURE]
+We utilize a 1D convolutional neural network (CNN) architecture in our model and oracle. The CNN takes in a one-hot encoded sequence as input then applies a 1D convolution with kernel width 5 followed by max-pooling and a dense layer to a single node that outputs a scalar value. It uses 256 channels throughout for a total of 157,000 parameters. Despite its simplicity, we find the CNN to outperform Transformers. Indeed, this corroborates the results in Dallago et al. (2021) that a simple CNN can be effective in low data regimes.
+
+[B.1 CNN ARCHITECTURE]
+Training is performed with batch size 1024, ADAM optimizer (Kingma & Ba, 2014) (with β 1 = 0.9, β 2 = 0.999), learning rate 0.0001, and 50 epochs, using a single A6000 Nvidia GPU.
+
+[Algorithm 4 CreateGraph]
+Require: Sequences: X 1: V ← X ▷ Construct nodes. 2: while |V | ≤ N nodes do 3:
+
+[Algorithm 4 CreateGraph]
+x ∼ U(V ) 4:
+
+[Algorithm 4 CreateGraph]
+x ′ ← PointMutation(x)
+
+[Algorithm 4 CreateGraph]
+▷ Sample a point mutation uniformly at random. 5: end while 6: E ← x∈V kNN(x; V ) ▷ Construct edges (Algorithm 5). ) is ran to generate many sample sequences, V r+1 . To control computation, we hierarchically cluster all sampled sequences based on Levenshtein distance and take the top fitness sequence in each cluster, using our trained fitness prediction model f θ to score each sequence -we refer to this subroutine as Reduce (eq. ( 5)). The top sequences, Ṽr+1 are used for the next round.

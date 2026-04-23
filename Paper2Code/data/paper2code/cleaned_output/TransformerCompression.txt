@@ -1,0 +1,71 @@
+[Abstract]
+Large language models have become the cornerstone of natural language processing, but their use comes with substantial costs in terms of compute and memory resources. Sparsification provides a solution to alleviate these resource constraints, and recent works have shown that trained models can be sparsified post-hoc. Existing sparsification techniques face challenges as they need additional data structures and offer constrained speedup with current hardware. In this paper we present SliceGPT, a new post-training sparsification scheme which replaces each weight matrix with a smaller (dense) matrix, reducing the embedding dimension of the network. Through extensive experimentation we show that SliceGPT can remove up to 25% of the model parameters (including embeddings) for LLAMA-2 70B, OPT 66B and Phi-2 models while maintaining 99%, 99% and 90% zero-shot task performance of the dense model respectively. Our sliced models run on fewer GPUs and run faster without any additional code optimization: on 24GB consumer GPUs we reduce the total compute for inference on LLAMA-2 70B to 64% of that of the dense model; on 40GB A100 GPUs we reduce it to 66%. We offer a new insight, computational invariance in transformer networks, which enables SliceGPT and we hope it will inspire and enable future avenues to reduce memory and computation demands for pre-trained models. Code is available at: https://github.com/microsoft/TransformerCompression . * Equal contribution † Work completed as an intern at Microsoft.
+
+[TRANSFORMER NETWORKS]
+Transformer networks (Vaswani et al., 2017) are a class of neural networks that have been shown to be effective at a wide range of tasks including language modeling. The transformer architecture is composed of a series of layers, each of which is composed of a multi-head self-attention block followed by a feed-forward network block. Between each block, there is a LayerNorm (Ba et al., 2016) (or RMSNorm (Zhang & Sennrich, 2019 )) block. Figure 2 illustrates part of a transformer network: an attention block connected to a Feed Forward Network (FFN) block through a LayerNorm block, with residual connections. The following describes the operations of each component (ignoring dropout, which is not applied post-training).
+
+[TRANSFORMER NETWORKS]
+Embeddings Let D be the embedding dimension of our transformer, N be the sequence length. The transformer model takes as input a sequence of token IDs and position IDs, and uses them to index the embedding matrices, producing the initial signal X with shape N × D. In what follows we consider, without loss of generality, a single embedding matrix W embd indexed by input sequence s.
+
+[TRANSFORMER NETWORKS]
+LayerNorm After embeddings, the signal matrix is passed through a LayerNorm operation, which subtracts the mean from each row of the matrix, divides the row by its standard deviation, rescales (columnwise), and adds an offset. We write the LayerNorm block as LayerNorm(X) = RMSNorm(XM)diag(α)
+
+[TRANSFORMER NETWORKS]
+√ D + 1 N β ⊤ (1)
+
+[TRANSFORMER NETWORKS]
+where RMSNorm(X) applies2 x ← x/∥x∥ to each row of X. The vector parameter α and offset (vector) parameter β are learned independently at each LayerNorm instance. The constant matrix M = I -1 D 11 ⊤ is a D × D matrix which subtracts the mean from each row of X. 2 ). We can consider the concatenation of these matrices to be a single linear layer, which we denote W in . We also refer to the output matrix as W out . We treat the attention block as σ(XW in + b in )W out + b out3 , where σ represents the multi-head attention operation.
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+Let Q denote an orthogonal matrix: we have
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+Q ⊤ Q = QQ ⊤ = I.
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+Note that multiplying a vector x by Q does not change the norm of the vector, since ∥Qx∥
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+= x ⊤ Q ⊤ Qx = √ x ⊤ x = ∥x∥.
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+In this work, the dimensions of Q will always match the embedding dimension of the transformer D.
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+Suppose that X ℓ is the output of one block of the transformer, which is then processed by RMSNorm, and then inputted to the subsequent block as RMSNorm(X ℓ ). If we insert linear layers with the orthogonal matrix Q before RMSNorm and Q ⊤ after RMSNorm, the network remains unchanged, since each row of the signal matrix is multiplied by Q, normalized and multiplied by Q ⊤ . We have
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+RMSNorm(X ℓ Q)Q ⊤ = RMSNorm(X ℓ ) .
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+(2)
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+A proof of this relation appears in Appendix A.1. Now, since each attention or FFN block of the network has a linear operation on both the input and output, we can absorb the additional operations Q into the linear layers of the blocks. Since the network contains residual connections, we must also apply Q to the output of all previous layers (all the way back to the embedding) and to all subsequent layers (all the way up to the LM Head).
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+An invariant function is one for which a transformation to the input does not result in a change to the output. In our case, we can apply any orthogonal transformation Q to the weights of the transformer without changing the result, so the computation can be performed in any transformed state. We refer to this as a computational invariance, and define it in the following theorem. Theorem 1. Let W ℓ in and W ℓ out be the weight matrices of the linear layers of the ℓ-th block of an RMSNorm-connected transformer network, and b ℓ in , b ℓ out be the corresponding biases, if any, and let W embd and W head be the embedding and head matrices. Let Q be an orthogonal matrix of dimension D. Then the following network is equivalent to the original transformer network:
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+EQUATION
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+EQUATION
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+)
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+The input and head biases are copied: bℓ in = b ℓ in , bhead = b head .
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+Proof. We can show that the transformed network computes the same results as the original by stepping through Algorithm 1. Suppose that on line 1, the original network has computed X, then the modified network has computed X = XQ, using Equation 3. Applying RMSNorm on line 2, we see that the operation of the two networks matches: by Equation 2 we have RMSNorm( X) = RMSNorm(XQ) = RMSNorm(X)Q. Applying the nonlinearity on line 4, we see that X Wℓ in = XW ℓ in , using Equation 4 and it follows that Z = ZQ. On line 5 the residual connection means we have ( X + Z) = (X + Z)Q, and applying RMSNorm results in assignment of X = XQ. This follows through to the end of the loop. Finally, on line 7, the transformations are undone as XW head = X Whead using Equation 7. We use (α) for brevity. The mean-subtraction matrix M is applied to each matrix W out . Layernorm becomes RMSNorm, up to a constant √ D (not shown). Here, the scaling (α ′ ) comes from the previous block.
+
+[COMPUTATIONAL INVARIANCE IN TRANSFORMER NETWORKS]
+The computational invariance of the transformer network applies only to RMSNorm-connected networks. Before working on those with Layer-Norm, we convert the network to RMSNorm by absorbing the linear blocks of LayerNorm into the adjacent blocks. Figure 3 shows such a transformation on the transformer network (see Figure 2 ) . In each block, we multiply the output matrix W out by the mean-subtraction matrix M, which accounts for the mean subtraction that would happen in the subsequent LayerNorm. The input matrices W in are pre-multiplied by the scales of the preceding LayerNorm blocks. The embedding matrix W embd must be mean-subtracted, and W head must be re-scaled by the last Layer-Norm scales. This is a straightforward change in the order of operations and does not affect the network output.
+
+[Models, Tasks, and GPUs]
+We evaluate all our experiments on OPT (Zhang et al., 2022) , LLAMA-2 (Touvron et al., 2023) model families, and additionally evaluate Phi-2 (in our zero-shot task) experiments. We exclude OPT 175B, as it is outperformed by smaller LLAMA-2 models. Nonetheless, we anticipate that this larger model will yield improved results, as larger models typically offer more promising opportunities for compression (see Section 4.1). We evaluate our scheme on both language generation as well as popular zero-shot tasks. To demonstrate the comprehensive speedup achieved by SliceGPT we use: Quadro RTX6000 GPUs with 24GB of memory as a representative example of consumer-level GPUs; 40GB A100s and 80GB H100s to provide datacenter-level benchmarks.
+
+[Models, Tasks, and GPUs]
+Baseline Setup We initially planned to compare our results against a scheme that pruned columns (or rows) with the smallest norm but found that this baseline was very poor, with the WikiText-2 perplexity of the model soaring into the 1000s after pruning just a few columns. Instead, we compare SliceGPT against SparseGPT (Frantar & Alistarh, 2023) employing a 2:4 sparsity ratio, as this is the only sparsity scheme which achieves speedup (Mishra et al., 2021) .

@@ -1,0 +1,59 @@
+[Abstract]
+Modern computer vision offers a great variety of models to practitioners, and selecting a model from multiple options for specific applications can be challenging. Conventionally, competing model architectures and training protocols are compared by their classification accuracy on Ima-geNet. However, this single metric does not fully capture performance nuances critical for specialized tasks. In this work, we conduct an in-depth comparative analysis of model behaviors beyond ImageNet accuracy, for both ConvNet and Vision Transformer architectures, each across supervised and CLIP training paradigms. Although our selected models have similar ImageNet accuracies and compute requirements, we find that they differ in many other aspects: types of mistakes, output calibration, transferability, and feature invariance, among others. This diversity in model characteristics, not captured by traditional metrics, highlights the need for more nuanced analysis when choosing among different models. Code is available at github.com/kirill-vish/Beyond-INet.
+
+[Models]
+For analyzing ConvNets and Transformers, many previous works (Naseer et al., 2021; Minderer et al., 2021; Zhou et al., 2021; Bai et al., 2021) compare ResNet and ViT. This comparison is often disadvantageous for ConvNet since ViTs are typically trained with more advanced recipes, achieving higher ImageNet accuracy. ViT also has architecture design elements, e.g., LayerNorm (Ba et al., 2016) , that were not incorporated in ResNet when it was invented years ago. For a more balanced evaluation, we compare ViT with Con-vNeXt (Liu et al., 2022) , a modern of ConvNet that matches Transformers' performance.
+
+[Models]
+As for the training paradigms, we compare supervised and CLIP. Supervised models continue to show state-of-the-art performance in computer vision (Dehghani et al., 2023) . CLIP models, on the other hand, excel in generalization and transferability, and offer intriguing representational properties that connect vision and language. Self-supervised models (He et al., 2022; Woo et al., 2023) are not included in the results as they showed behaviors similar to supervised models in our preliminary tests. This could be due to their final ImageNet-1K supervised finetuning, which is necessary for studying many properties.
+
+[Models]
+The selected models have similar ImageNet-1K validation accuracies within their respective training paradigms, ensuring a fair comparison. For CLIP models, these indicate their zero-shot accuracies. The models also have similar sizes and computational requirements, and are publicly available. Since we are using pretrained models, we cannot control for the number and quality of data samples seen during training.
+
+[Models]
+For supervised models, we use a pretrained DeiT3-Base/16 (Touvron et al., 2022) for ViT, which shares the same architecture as ViT-Base/16 with an improved training recipe, and ConvNeXt-Base (Liu et al., 2022) . For CLIP models, we use vision encoders of ViT-Base/16 and ConvNeXt-Base from OpenCLIP (Ilharco et al., 2021) . Note that these models have a slightly different performance from the original OpenAI models (Radford et al., 2021) . A detailed model comparison is given in Table 1 .
+
+[Models]
+We recognize there are other ViT CLIP models pretrained on larger datasets such as LAION-2B, DataComp (Gadre et al., 2023) , DFN (Fang et al., 2023a) , which show a better performance. However, OpenCLIP offers only a few pretrained ConvNeXt models and for most of them there is no matching ViT counterpart in terms of ImageNet accuracy, pretraining dataset and parameter count. Therefore, we chose CLIP models pretrained on LAION-400M, offering the most fair comparison between ConvNet and ViT.
+
+[Models]
+Additional models of different sizes. In the Appendix A, we present the performance results for models of different sizes to evaluate the impact of model size on performance. These models are assessed across several benchmarks, including ImageNet-X, PUG-ImageNet, calibration, invariance, and shape/texture bias. 
+
+[Model Mistakes]
+In image classification, a model mistake is an incorrect label assignment, such as misclassifying a cat as a dog. Simply identifying mistaken object classes might not offer actionable insights for model improvement. The key aspect, therefore, is finding the specific reasons for these mistakes. For instance, some models may be particularly sensitive to certain aspects of the data distribution, like texture variations. In this case, a model might consistently make mistakes when the texture of the object differs from what it has been trained on. Identifying mistake types allows for targeted data collection and retraining, improving over a black-box approach.
+
+[Model Mistakes]
+The ImageNet-X dataset (Idrissi et al., 2022) offers detailed human annotations for 16 factors of variation, such as pose, style, and others. This allows a focused analysis of models' mistake types. The annotations enable measuring model error ratios for each factor independently: error ratio(factor) = 1-accuracy(factor) 1-accuracy(overall) , where accuracy(overall) is the overall ImageNet-1K validation accuracy, and accuracy(factor) is the accuracy on all the images where the factor was highlighted. This metric measures the model performance on a given factor relative to its overall performance. Lower error ratios indicate better performance, implying higher accuracy for the specific factor. Our results on ImageNet-X are presented in Fig. 2 .
+
+[Model Mistakes]
+CLIP models make fewer mistakes relative to their Im-ageNet accuracy than supervised. The diagram in Fig. 2 shows that CLIP models have a smaller error ratio, indicating a significant advantage over supervised models. However, it is important to note that the error ratio is relative to overall ImageNet accuracy, where a significant 18% gap exists between supervised and CLIP zero-shot models. In particular, CLIP models are much more robust towards shape, subcategory, texture, object blocking, and darker factors.
+
+[Model Mistakes]
+The key reason for the success of CLIP models is likely the more diverse data used for training.
+
+[Model Mistakes]
+All models suffer mostly from complex factors like occlusion. For CLIP models, there are three factors with dissimilar performance between ConvNeXt and ViT: multiple objects, style, and darker. For the first two, the ConvNeXt has a higher error ratio, while for the latter, it has an advantage over ViT. For supervised models, the performance only diverges for style and person blocking. Except for these factors, models largely have similar error ratios. The six factors for which all the models have a high error ratio are smaller, object blocking, person blocking, shape, subcategory, and texture. High error ratio factors usually involve complex visual scenarios, which helps to explain why models often make mistakes in these situations. For example, in occlusion, the model often misclassifies due to focusing on the visible, obscuring object. Texture is the most challenging factor for all models.
+
+[Model Mistakes]
+Interestingly, all models in our analysis have the largest error ratio on the texture factor. It refers to images where the texture of the object differs from its standard appearance. This suggests that models of the current generation largely suffer because of texture bias.
+
+[Model Calibration]
+Besides vulnerability to shortcut features, poor model performance can often be attributed to miscalibration, where a model's confidence in its predictions does not align with actual accuracy. Model calibration is a metric that quantifies the reliability of a model's predicted confidence levels (Guo et al., 2017) . A model's confidence for a prediction is defined as the max probability among all classes in its output distribution. We are interested in determining whether the model is overly confident or too uncertain in its predictions.
+
+[Model Calibration]
+For instance, if the network deems a set of predictions to be 80% confident, does the actual accuracy hover around 80%?
+
+[Model Calibration]
+The calibration rate can be quantified by Expected Calibration Error (ECE). To calculate ECE, predictions first need to be separated into the M bins B 1 , . . . , B M based on their confidence. For instance, one bin can include all the predictions with confidence between 50% and 60% and so on. Each bin's confidence and accuracy are calculated as the average confidence and accuracy of predictions in B i , represented as conf(B i ) and acc(B i ). Then, ECE can be defined as: ECE
+
+[Model Calibration]
+= M i |Bi| n |acc(B i ) -conf(B i )| , where |B i | is the size of the i-th bin.
+
+[Model Calibration]
+Model calibration is also often assessed through visualizations, including reliability diagrams and confidence histograms. Reliability diagrams plot the predicted confidence against accuracy; a well-calibrated model would show a graph where points closely align with the diagonal. Confidence histograms display how often different confidence levels occur in the model's predictions.
+
+[Model Calibration]
+For a balanced evaluation, we present calibration metrics on two different datasets: ImageNet-1K for in-distribution data and ImageNet-R (Hendrycks et al., 2021a) for outof-distribution data. We select ImageNet-R as the out-ofdistribution because CLIP models show higher accuracy on it than supervised. In all experiments, we use M = 15 bins. We plot confidence histograms (1 and 3 rows), reliability diagrams (2 and 4 rows), and ECE in Fig. 5 .
+
+[Model Calibration]
+CLIP models are overconfident and supervised models are slightly underconfident. In Fig. 5 , we observe that CLIP models have bars consistently below the diagonal in reliability diagrams and a notably high last bar in the confidence histogram, signaling overconfidence in both in-distribution and out-of-distribution data. Although (Minderer et al., 2021) attributes calibration performance mainly to architecture, our results suggest otherwise: higher ECE scores in CLIP models, despite superior accuracy on ImageNet-R, indicate that training data and objectives could be more influential factors. We also highlight that our results are different from (Minderer et al., 2021) for CLIP models presumably because they use checkpoints from Ope-nAI (Radford et al., 2021) and we use from OpenCLIP (Ilharco et al., 2021) . In the lower part of Fig. 5 related to ImageNet-R, we note that supervised models exhibit a higher density in the lower confidence intervals of the confidence histograms (3 row). Additionally, these models show elevated accuracy levels in the initial bins of the reliability diagrams (4 row). These findings suggest that supervised models tend to be slightly underconfident on ImageNet-R. This discrepancy is because (Minderer et al., 2021) focused on older ConvNet architectures, such as ResNet, while we use a more modern one. For CLIP models, we find that ViT is only slightly better than ConvNeXt.

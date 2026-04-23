@@ -1,0 +1,47 @@
+[Abstract]
+Supervised contrastive representation learning has been shown to be effective in various transfer learning scenarios. However, while asymmetric non-contrastive learning (ANCL) often outperforms its contrastive learning counterpart in selfsupervised representation learning, the extension of ANCL to supervised scenarios is less explored. To bridge the gap, we study ANCL for supervised representation learning, coined SUPSIAM and SUPBYOL, leveraging labels in ANCL to achieve better representations. The proposed supervised ANCL framework improves representation learning while avoiding collapse. Our analysis reveals that providing supervision to ANCL reduces intraclass variance, and the contribution of supervision should be adjusted to achieve the best performance. Experiments demonstrate the superiority of supervised ANCL across various datasets and tasks. The code is available at: https: //github.com/JH-Oh-23/Sup-ANCL.
+
+[Method]
+In this section, we first review the problem setting of selfsupervised ANCL. Then, we introduce supervised ANCL. The overall framework is illustrated in Figure 1 .
+
+[Method]
+3.1. Preliminary: Self-Supervised ANCL Let f , g, and h be the encoder, projector, and predictor of the online branch, respectively, and f and g be the encoder and projector of the target branch, respectively. For a data point x,
+
+[Method]
+let z = (g • f )(x) and p = (h • g • f )(x)
+
+[Method]
+be the output of the projector and predictor, respectively. In self-supervised ANCL, two views x 1 and x 2 are generated from the data x through augmentation, and the model learns to minimize the distance between these views encoded at different levels: it compares the prediction of the first view
+
+[Method]
+p 1 = (h • g • f )(x 1
+
+[Method]
+) with the projection of the second view z 2 = (g • f )(x 2 ). It has been observed that the asymmetric architecture introduced by the predictor h helps prevent representation collapse by predicting the latent feature of the second view z 2 from that of the first view z 1 , i.e., z 2 ≃ p 1 = h(z 1 ) (Chen & He, 2021) . The self-supervised ANCL loss ℓ ssl is expressed as:
+
+[Method]
+EQUATION
+
+[Method]
+)
+
+[Method]
+where sg is the stop-gradient operation and p 1 and z 2 are L2normalized. The inclusion of stop-gradient is also crucial for preventing collapsing, making it an essential component of the loss formulation (Chen & He, 2021) .
+
+[Method]
+The target branch can either share parameters with the online branch (Chen & He, 2021) , or exhibit a momentum network (Grill et al., 2020) . When a momentum network is employed, its parameters follow the exponential moving average (EMA) update rule:
+
+[Method]
+θ g• f ← m • θ g• f + (1 -m) • θ g•f ,
+
+[Method]
+where m is the momentum, θ g•f is the set of learnable parameters in f and g. The parameters of the target model θ g• f are initialized to those of the online model θ g•f .
+
+[Pretraining]
+We consider two ANCL methods, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020) , as our baselines, along with their supervised variations, SUPSIAM and SUPBYOL, as our proposed methods. Additionally, we compare two CL methods, SIMCLR (Chen et al., 2020a) and MOCO-V2 (Chen et al., 2020b) , and their supervised variations, SUPCON (Khosla et al., 2020) and SUPMOCO (Majumder et al., 2021) . Each model consists of a ResNet-50 encoder (He et al., 2016) followed by a 2-layer MLP projector and predictor, except for SIMSIAM and SUPSIAM, which utilize a 3-layer MLP projector following the original configuration by Chen & He (2021) . We pretrain models on ImageNet-100 (Deng et al., 2009; Tian et al., 2020) for 200 epochs with a batch size of 128. For data augmentation, we apply random crop, random horizontal flip, color jitter, random grayscale, and Gaussian blur, following Chen et al. (2020a) .
+
+[Pretraining]
+For methods utilizing the target pool, we set the size of the target pool |Q| to 8192 and obtain the supervised target z sup 2 by sampling and averaging all positives in the target pool1 unless otherwise stated. The coefficient α adjusting the contribution of the self-supervised and supervised loss is 0.5, unless otherwise stated. We repeat all experiments with three pretrained models with different random seeds and report the average performance.
+
+[H. Pretraining on CIFAR]
+We conduct additional experiments on the CIFAR (Krizhevsky & Hinton, 2009) dataset, where the image size was reduced to 32×32. The encoder employes a CIFAR variant of ResNet-18 (He et al., 2016) and is trained for a total of 1000 epochs with a batch size of 256. For the ANCL approach, specifically SIMSIAM and SUPSIAM, we utilize a 2-layer MLP projector, and Gaussian blurring is excluded from the augmentation. For contrastive learning, we select SIMCLR (Chen et al., 2020a) and its supervised version SUPCON (Khosla et al., 2020) . For ANCL, SIMSIAM (Chen & He, 2021) and BYOL (Grill et al., 2020) and their supervised counterparts SUPSIAM and SUPBYOL are chosen as models. Learning rates are tuned individually for each model: SIMCLR (0.7), SUPCON (0.6), BYOL (0.6), SUPBYOL (0.5), SIMSIAM (0.7), and SUPSIAM (0.7). For supervised ANCL, the target pool size is reduced to 4096, and the loss parameter α is set to 0.5 for SUPSIAM and 0.8 for SUPBYOL. The results in Table H .1 indicate that when the pretext and downstream datasets are the same, the introduction of supervision leads to an increase in linear accuracy. Conversely, in cases where they differ, contrastive learning shows a decline or slight increase in performance. Asymmetric non-contrastive learning, on the other hand, benefits from labels, resulting in increased accuracy and showcasing the best performance. Thus, our proposed supervised ANCL proves to be an effective method for obtaining high-quality representations across various datasets.

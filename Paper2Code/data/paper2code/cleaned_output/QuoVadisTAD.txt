@@ -1,0 +1,68 @@
+[Abstract]
+The current state of machine learning scholarship in Timeseries Anomaly Detection (TAD) is plagued by the persistent use of flawed evaluation metrics, inconsistent benchmarking practices, and a lack of proper justification for the choices made in novel deep learning-based model designs. Our paper presents a critical analysis of the status quo in TAD, revealing the misleading track of current research and highlighting problematic methods, and evaluation practices. Our position advocates for a shift in focus from solely pursuing novel model designs to improving benchmarking practices, creating non-trivial datasets, and critically evaluating the utility of complex methods against simpler baselines. Our findings demonstrate the need for rigorous evaluation protocols, the creation of simple baselines, and the revelation that state-of-the-art deep anomaly detection models effectively learn linear mappings. These findings suggest the need for more exploration and development of simple and interpretable TAD methods. The increment of model complexity in the state-of-the-art deeplearning based models unfortunately offers very little improvement. We offer insights and suggestions for the field to move forward.
+
+[Methods]
+Among the numerous anomaly detection approaches presented in the past, there is often something consistent -they tend to overlook simpler baselines in pursuit of novelty. This leads to overly complex engineered solutions without much utility and a good rationale. Towards this end, we propose simple methods that exceed the performance of current best-published anomaly detection approaches. As a result, these baselines help us to understand the complexity of the underlying problem and provide a solid foundation for further investigation. Of note, our contribution is properly setting up these known methods and creating a set of strong baselines.
+
+[Proposed neural network blocks baselines]
+Contemporary anomaly detection techniques based on deep learning utilize modern neural networks to create solutions with varying levels of sophistication. Among the commonly employed architectures are auto-encoders (AE), long short-term memory (LSTM) networks, multi-layer perceptrons (MLPs), graph convolution networks (GCN), and Transformers. These neural network structures serve as the foundational components for designing intricate models intended for anomaly detection. In order to provide context for the usefulness of the more elaborate solutions, we utilize these architectures in their most basic form as a set of baselines. It is reasonable to expect that any solution which employs these as foundational components should perform better, provided they are trained on rich enough datasets of normal examples. Our experiments demonstrate that, in most cases, these basic baselines perform better than models that incorporate a combination of these structures for the purpose of anomaly detection. Therefore, establishing such baselines may help understand the rationale behind the development of more complex models.
+
+[Proposed neural network blocks baselines]
+1-layer linear MLP as auto-encoder: As the first simplest neural baseline we use a single hidden-layer MLP without any activation as an auto-encoder.
+
+[Proposed neural network blocks baselines]
+Single block MLP-Mixer: Among the more modern variants of MLPs, the MLPMixer (Tolstikhin et al., 2021) has been shown to perform quite well on many vision problems. The architecture includes several MLP layers, called MLP-Mixer blocks. Each MLP-Mixer block consists of two sub-layers: a token-mixing sub-layer and a channelmixing sub-layer. These operate on the spatial dimension and the channel dimension of the input feature maps. The entire architecture consists of stacking several MLP-Mixer blocks, allowing the network to capture increasingly complex spatial and cross-channel dependencies in the input.
+
+[Proposed neural network blocks baselines]
+We include a single standard block of MLPMixer as our baseline.
+
+[Proposed neural network blocks baselines]
+Single Transformer block: Since transformers are increasingly used in several recent anomaly detection methods, we use a basic transformer block with one single-head attention and one fully connected layer as a feed-forward output. This serves as the simplest and basic single transformer block baseline. Figure 1 illustrates the proposed baseline neural network blocks. These baseline models are trained and compared in both reconstruction and forecasting modes.
+
+[Model setup]
+In this section we summarize our data preprocessing steps and the hyperparameters used to train the models. The features were scaled to the interval [0, 1] in the training dataset and the learned scaling parameters were used to scale the testing dataset. For all of our NN baselines, when trained in forecasting mode, we used a time window of size 5. We used a 90/10 split to make the train and the validation set. The validation set is only used for early stopping to avoid over-fitting and the Adam optimizer with learning rate 0.001 and a batch size of 512 were used.
+
+[Model setup]
+PCA reconstruction error: For multivariate data, this method uses the first 30 principal components when data
+
+[Model setup]
+SWaT WADI 127 WADI 112 SMD F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T
+
+[SOTA methods]
+MERLIN (Nakamura et al., 2020) 0.934 0.217 0.286 0.560 0.335 0.354 0.699 0.473 0.503 0.886 0.384 0.473 DAGMM (Zong et al., 2018) 0.830 0.770 0.402 0.363 0.279 0.406 0.829 0.520 0.609 0.840 0.435 0.379 OmniAnomaly (Su et al., 2019b) 0.831 0.773 0.367 0.387 0.281 0.410 0.742 0.441 0.496 0.804 0.415 0.353 USAD (Audibert et al., 2020) 0.827 0.772 0.413 0.375 0.279 0.406 0.778 0.535 0.573 0.841 0.426 0.364 GDN (Deng & Hooi, 2021) 0.866 0.810 0.385 0.767 0.347 0.434 0.833 0.571 0.588 0.929 0.526 0.570 TranAD (Tuli et al., 2022) 0.865 0.799 0.425 0.671 0.340 0.353 0.680 0.511 0.589 0.827 0.457 0.390 AnomalyTransformer (Xu et al., 2022) 0 has more than 50 sensors and 10 otherwise. On univariate datasets, the first 2 principal components with a window size of 5 are used.
+
+[SOTA methods]
+1-layer Linear MLP: A hidden layer of size 32 is used.
+
+[SOTA methods]
+Single block MLP-Mixer and Single Transformer block both use an embedding of 128 for the hidden layer.
+
+[1-layer GCN-LSTM block:]
+The dimension for the GCN output nodes is set to 10 and for LSTM layer to 64 units.
+
+[1-layer GCN-LSTM block:]
+Our neural network baselines are trained in the forecasting mode, similar to most other methods we are comparing with. We also provide their performance for the reconstruction mode in the appendix section A.2.2.
+
+[1-layer GCN-LSTM block:]
+Hyperparameter sensitivity: Most of the simple baselines don't have tunable hyperparameters. The only exceptions are the projection dimension of the PCA method and the sliding window for univariate series. We have included their ablations in sections 4.5 and A.2.1. We trained our neural network baseline models using the same hyperparameters as stated above on all multivariate datasets. The purpose of this analysis was to demonstrate that even with basic hyperparameters, these simple neural networks can achieve comparable performance to SOTA deep learning models. The fact that the hyperparameters of the SOTA models were optimized for each respective datasets, while the simple NN baseline models used the same set of hyperparameters, highlights less reliance on dataset-specific tuning.
+
+[1-layer GCN-LSTM block:]
+Published SOTA methods: All methods were trained with the hyper-parameters recommended in their respective papers, where possible, with their official implementations or the implementations provided in (Tuli et al., 2022) . GDN (Deng & Hooi, 2021) on WADI-112 is not re-trained since the authors provided the trained checkpoint of their official model.
+
+[Model performance overview]
+Table 2 outlines the model performance on the three multivariate benchmark datasets, SWaT, WADI, and SMD.
+
+[Model performance overview]
+First, it is evident that all methods have higher scores on the predominantly used point-adjusted F 1 P A metric including the random prediction which performs better in almost all comparisons. This artificial advantage created by pointadjust is not present on the pure F1 score protocols which do not favour noisy random predictions. On both standard point-wise F 1 and range-wise F 1 T metrics, the simple baselines such as PCA reconstruction error performs better on all datasets while other baselines such as 1-NN distance and L2-norm are often very close to the best performing methods. Furthermore, the NN-baselines in most cases outperform the more complex SOTA deep models which are build using these as basic building blocks. This is a strong evidence that the complicated solutions introduced to solve the TAD task do not provide a benefit compared to such simple baselines. Finally, one can notice the interplay between the point-wise and range-wise metrics. In datasets like SWAT, where there is a small number of long anomaly intervals, the F 1 score is much higher than the F 1 T score, on noisy datasets with more consistent anomaly lengths, like WADI 127, F 1 T is tendentially higher, while on cleaner datasets with frequent short anomalies, like univariate UCR datasets, the two scores are comparable.
+
+[Model performance overview]
+Table 3 provides a comparison on univariate UCR datasets with our simple baselines. Here we include two representative univariate TAD methods, a highly effective classic method Local Outlier Factor (LOF) (Breunig et al., 2000) and a more recent SOTA method Merlin (Nakamura et al., 2020) . As shown in Figure 2 the normal periodical phase-UCR/IB-16 UCR/IB-17 UCR/IB-18 UCR/IB-19 (Breunig et al., 2000) 0.878 0.476 0.476 1.000 0.959 0.955 1.000 0.915 0.911 1.000 0.857 0.857 MERLIN (Nakamura et al., 2020) 1.000 0.846 0.846 1.000 0.987 0.987 1.000 0.795 0.795 1.000 0.870 0.870
+
+[Model performance overview]
+F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T F 1 P A F 1 F 1 T LOF
+
+[Analysis of the deep models learned function]
+The consistently better results of the simple methods raises the question of what type of functions are learned by the more complicated deep learning models. To investigate this, we try to approximate the behavior of the most prominent of the deep learning models by linear functions. We achieve this by performing a simple form of distillation.
+
+[Analysis of the deep models learned function]
+Given a deep learning model M θ trained on the training data X, we compute its predictions M (X) ⊂ R F and then train a linear model L on the data/target tuple (X, M (X)) using a mean squared error (MSE) loss. The linear model in this case is simply a 1-layer perceptron. Upon evaluating both M and L on the test set on the anomaly detection task, we observed that their scores are very close and they exhibited high agreement on their predictions. this with the linear model L marked as 'Line' and the corresponding deep learning model M marked as 'Orig'. The performance of distilled linear version of the complex models suggests that even though the learned functions may be complex and may improve forecasting, their ability to distinguish anomalies can still be effectively captured by linearizing them.

@@ -1,0 +1,122 @@
+[Abstract]
+Studying protein mutations within amino acid sequences holds tremendous significance in life sciences. Protein language models (PLMs) have demonstrated strong capabilities in broad biological applications. However, due to architectural design and lack of supervision, PLMs model mutations implicitly with evolutionary plausibility, which is not satisfactory to serve as explainable and engineerable tools in real-world studies. To address these issues, we present MutaPLM, a unified framework for interpreting and navigating protein mutations with protein language models. MutaPLM introduces a protein delta network that captures explicit protein mutation representations within a unified feature space, and a transfer learning pipeline with a chain-of-thought (CoT) strategy to harvest protein mutation knowledge from biomedical texts. We also construct MutaDescribe, the first large-scale protein mutation dataset with rich textual annotations, which provides cross-modal supervision signals. Through comprehensive experiments, we demonstrate that MutaPLM excels at providing human-understandable explanations for mutational effects and prioritizing novel mutations with desirable properties. Our code, model, and data are open-sourced at https://github.com/PharMolix/MutaPLM.
+
+[Protein Language Models]
+In analogy to large language models (LLMs) [31] [32] [33] [34] in natural language processing (NLP), protein language models (PLMs) such as ProteinBERT [35] , ProtTrans [17] , ProtGPT2 [18] , and ESM series [36, 19, 37] have surged in modeling protein sequences. Pre-trained by masked language modeling [38] or auto-regressive language modeling [39] on evolutionary-scale protein databases, PLMs have demonstrated outstanding predictive power on protein secondary and tertiary structures [24] , protein functions [40] and protein-protein interactions [41] . More recently, explorations on PLMs unifying protein sequences and natural language [42] [43] [44] [45] have attracted rising research interest, as texts provide unstructured knowledge and a friendly user interface for studying proteins. Notably, a contemporary work [46] proposes to perform text-based protein editing by directly generating the mutated protein sequence. Unfortunately, none of the existing PLMs qualifies as an explainable and engineerable tool in modeling protein mutations, mainly owing to architectural design and lack of supervision.
+
+[Protein Mutation Modeling]
+Previous works formulate mutation explanation as learning the 'local fitness landscape', a mapping from protein sequences to specific functional activity scores [47] . Models for protein fitness prediction could be categorized as (1) alignment-based models [48, 49] trained on multiple sequence alignments (MSAs) [50] , (2) PLM models [18, 19] trained on large-scale unaligned sequences, (3) inverse-folding models [27, 51] that learn protein fitness through structure-conditioned sequence distributions, and (4) hybrid models [52, 53] that combine both PLMs and MSAs. The evaluations are performed as per wild-type protein on deep mutation scanning (DMS) [54] or clinical variant [55] benchmarks. In this work, we formulate mutation explanation as a more challenging task that aims at providing textual descriptions of mutational effects for arbitrary wild-type protein and mutation.
+
+[Protein Mutation Modeling]
+The traditional mutation engineering [8, 9] task aims at generating protein mutants with high fitness scores. One line of work leverages generative models including variational auto-encoders (VAEs) [56] , generative language models [57] and diffusion models [58] to directly generate the protein sequence conditioned on fitness scores. Another line attempts to propose mutations iteratively by greedy sampling [59] , reinforcement learning [60] , or proximal gradients [61] on the learned fitness landscape. Differing from prior studies, MutaPLM incorporates textual instructions instead of fitness scores as navigation and proposes mutations satisfying human preferences.
+
+[Methods]
+The main goal of our work is to develop explainable and engineerable PLMs by explicitly modeling protein mutations. To achieve this goal, we elaborate on the proposed MutaPLM framework, highlighting three design components: (1) a protein delta network that translates between mutations and protein delta features z ∆ (Sec. 3.1, detailed in Appendix A.1), (2) a transfer learning pipeline with a chain-of-thought strategy that harvests protein mutation knowledge from cross-modal supervision (Sec. 3.2, detailed in Appendix A.3), and (3) a specifically constructed dataset with diverse proteins and rich textual annotations of mutation effects (Sec. 3.3, detailed in Appendix B.2).
+
+[Protein Delta Network for Explicit Mutation Modeling]
+The protein delta network follows an encoder-decoder architecture, utilizing textual semantics as the latent feature space for protein mutations. As illustrated in Fig. 1 , the protein delta network is composed of a protein language model (PLM), a large language model (LLM), a wild-type encoder, a delta encoder, a delta decoder, and two mutation prediction heads. We leverage ESM-2 (650M) [19] , a powerful PLM pre-trained on evolutionary-scale databases, to encode protein sequences. We initialize the LLM with BioMedGPT-LM [62] , a scientific language model built on LLaMA2-7B [31] through continual pre-training [63] on large-scale biomedical corpora.
+
+[Protein Delta Network for Explicit Mutation Modeling]
+Formulation of protein delta features. We speculate that the subtraction of PLM representations between the mutant and wild-type, denoted as h ∆ , contains rich mutation information, making it suitable for extracting protein delta features z ∆ . Specifically:
+
+[Protein Delta Network for Explicit Mutation Modeling]
+EQUATION
+
+[Protein Delta Network for Explicit Mutation Modeling]
+where x mt and x wt are the amino acid sequences of the mutant and wild-type protein, h mt and h wt are their sequence representations, and f PLM is the protein language model.
+
+[Protein Delta Network for Explicit Mutation Modeling]
+The delta encoder f enc and delta decoder f dec facilitates bi-directional transformations between h ∆ and z ∆ as follows:
+
+[Protein Delta Network for Explicit Mutation Modeling]
+EQUATION
+
+[Protein Delta Network for Explicit Mutation Modeling]
+Encoding protein delta features. Given h ∆ , the delta encoder is expected to extract informationpreserving protein delta features z ∆ within a unified feature space. However, protein sequences vary in length, ranging from several tens to thousands of amino acids. To address this issue, we adopt a cross-attention module [29] to transform the sequential representations into a fixed number of latent features. The module, partly inspired by BLIP series [64, 65] , maintains K trainable features that serve as queries and takes the sequence representations as keys and values to generate outputs. We employ two parallel modules for encoding the wild-type features h wt and mutational features h ∆ .
+
+[Protein Delta Network for Explicit Mutation Modeling]
+Decoding protein delta features. Drawing inspirations from LM-DESIGN [66] , we introduce a cross-attention module that takes a symmetrical form of the delta encoder. Specifically, it treats the wild-type protein representations h wt as queries and protein delta features z ∆ as keys and values.
+
+[Protein Delta Network for Explicit Mutation Modeling]
+The outputs are then processed by a two-layer feed-forward network (FFN) to reconstruct h ∆ . The mutant representations h mt are obtained by combining h ∆ with h wt , and fed into a position head and a language modeling head to predict the mutation. The position head is a fully-connected layer that predicts whether the amino acid should be substituted. The language modeling head is initialized from the PLM and predicts the type of the mutated amino acid. To facilitate text-based protein engineering, we maintain K trainable soft tokens, which are appended to the input token embeddings of the LLM to summarize textual semantics. The output representations of the soft tokens are processed by the delta decoder to generate mutations.
+
+[Protein Delta Network for Explicit Mutation Modeling]
+Compared with previous works that connect protein sequences with LLMs [67, 44, 45] , the proposed protein delta network exhibits the following advantages:
+
+[Protein Delta Network for Explicit Mutation Modeling]
+• Explicit modeling of protein mutations. Prior models are designed for static protein sequences, while MutaPLM models the alterations introduced by mutations with protein delta features z ∆ . • Encoder-decoder architecture. Prior works adopt either an encoder or a decoder architecture for protein sequences, while MutaPLM incorporates both encoding and decoding components.
+
+[Training Setup]
+To alleviate catastrophic forgetting [76] and save computational costs, we train MutaPLM in a parameter-efficient way. We apply low-rank adaptation (LoRA) [77] on the LLM with a rank of 16.
+
+[Training Setup]
+The number of query embeds and soft tokens is set as K = 32. We optimize the LoRA modules, the wild-type encoder, the delta encoder, the delta decoder, the soft tokens, the position head, and the language modeling (LM) head, which comprises a total of 75.0M parameters. The remaining 7.4B parameters are kept frozen.
+
+[Training Setup]
+We pre-train MutaPLM for 200K steps with a batch size of 32 on 1.1M protein-text data collected from biomedical publications (detailed in Appendix B.1) and fine-tune it for 70K steps with a batch size of 24 on MutaDescribe. For both stages, we use the AdamW optimizer [78] with a learning rate that is linearly warmed up to 10 -4 for the first 1K steps and decreases to 10 -5 following a cosine annealing strategy. The overall training process takes 10 days on 4 NVIDIA A100 GPUs.
+
+[A.3 Pre-training Objectives]
+MutaPLM performs pre-training on large-scale protein-relevant literature. Given the protein sequence x wt and its semantically related text t, we optimize the following objectives:
+
+[A.3 Pre-training Objectives]
+Protein-to-text generation. We first concatenate the latent wild-type features z wt in Equ. A4 and the text embeddings e in Equ. A3. We perform conditional auto-regressive language modeling that aims to generate t based on the protein representations and previous tokens. The objective is calculated as follows:
+
+[A.3 Pre-training Objectives]
+EQUATION
+
+[A.3 Pre-training Objectives]
+where H(•, •) denotes cross-entropy.
+
+[A.3 Pre-training Objectives]
+Text-to-protein generation. We first append K trainable soft tokens s = [s 1 , s 2 , • • • , s K ] to the input token embeddings to summarize textual semantics. Then, we derive z ∆ as the last hidden state of s as follows:
+
+[A.3 Pre-training Objectives]
+EQUATION
+
+[A.3 Pre-training Objectives]
+where s denotes the soft tokens. We pass z ∆ into the delta decoder to obtain h ∆ as in Equ. A6. It is worth noting that in this stage, we are aimed at aligning the feature space of PLMs and LLMs, and z ∆ and h ∆ are NOT related to protein mutations.
+
+[A.3 Pre-training Objectives]
+Then, we randomly mask 15% amino acids in the protein sequence. We adopt the conditional masked language modeling objective to reconstruct the masked tokens as follows:
+
+[A.3 Pre-training Objectives]
+first-round dialog and protein delta features z ∆ . The objective is calculated as follows:
+
+[A.3 Pre-training Objectives]
+L exp = 1 T T i=1 H t (∆) i , P t (∆) i t (∆) <i , y func , z ∆ , z wt . (A14)
+
+[A.3 Pre-training Objectives]
+Second-round dialog for mutation engineering. We apply the same soft tokens s as in pre-training to the input prompt to calculate the delta features based on the first-round dialog and descriptions of mutational effects:
+
+[A.3 Pre-training Objectives]
+EQUATION
+
+[A.3 Pre-training Objectives]
+)
+
+[A.3 Pre-training Objectives]
+where t prompt is the input embeddings of the prompt involving the first-round dialog and the mutational effects.
+
+[A.3 Pre-training Objectives]
+Then, reconstructing h mt = h wt + h ∆ with the delta decoder, we calculate the weighted cross-entropy loss for the mutation position and the mutated amino acid with the prediction heads:
+
+[A.3 Pre-training Objectives]
+EQUATION
+
+[A.3 Pre-training Objectives]
+where 1{•} is the boolean indicator function, and λ is a hyper-parameter controlling label weight. In our experiments, we set λ = 50.
+
+[A.3 Pre-training Objectives]
+The overall objective is calculated as follows:
+
+[A.3 Pre-training Objectives]
+EQUATION
+
+[A.3 Pre-training Objectives]
+where D 2 is our fine-tuning dataset.
+
+[A.3 Pre-training Objectives]
+The prompt templates for fine-tuning are displayed in Tab. A2.
+
+[B Training data B.1 Pre-training Data]
+Our pre-training data involves 1.1M protein-text pairs collected from the UniProtKB/SwissProt [69] database. We download 467.8K proteins with the Publications entry and retrieve 257.2K PubMed [70] abstracts based on the reference information.

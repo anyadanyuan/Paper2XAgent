@@ -1,0 +1,164 @@
+[Abstract]
+Self-supervised learning converts raw perceptual data such as images to a compact space where simple Euclidean distances measure meaningful variations in data. In this paper, we extend this formulation by adding additional geometric structure to the embedding space by enforcing transformations of input space to correspond to simple (i.e., linear) transformations of embedding space. Specifically, in the contrastive learning setting, we introduce an equivariance objective and theoretically prove that its minima forces augmentations on input space to correspond to rotations on the spherical embedding space. We show that merely combining our equivariant loss with a non-collapse term results in non-trivial representations, without requiring invariance to data augmentations. Optimal performance is achieved by also encouraging approximate invariance, where input augmentations correspond to small rotations. Our method, CARE: Contrastive Augmentationinduced Rotational Equivariance, leads to improved performance on downstream tasks, and ensures sensitivity in embedding space to important variations in data (e.g., color) that standard contrastive methods do not achieve. Code is available at https://github.com/Sharut/CARE.
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+In this section, we establish that matching angles via L equi leads to a seemingly stronger property. Specifically, L equi = 0 implies the existence of an orthogonal matrix R a ∈ O(d) for any augmentation a, such that f (a(x)) = R a f (x) holds for all x. The converse also holds and is easy to see. Indeed, suppose such an
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+R a ∈ O(d) exists. Then, f (a(x ′ )) ⊤ f (a(x)) = f (x ′ ) ⊤ R ⊤ a R a f (x) = f (x) ⊤ f (x ′
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+), which implies L equi (f ) = 0. We formulate the first direction as a proposition. Proposition 1. Suppose L equi (f ) = 0. Then for almost every a ∈ A, there is an orthogonal matrix R a ∈ O(d) such that f (a(x)) = R a f (x) for almost all x ∈ X .
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+Figure 1 illustrates this result. Crucially R a is independent of x, without which the Proposition 1 would be trivial. That is, a single orthogonal transformation R a captures the impact of applying a across the entire input space X . Consequently, exact minimization of L equi loss converts "unstructured" augmentations in input space to have a structured geometric interpretation as rotations in the embedding space. In Appendix B.1, we extend this result to the case where the loss is low but not exactly minimized, in which case we have a guarantee of approximate equivariance. This result can be expressed as the existence of a mapping ρ : A → O(d) that encodes the space of augmentations within O(d). This raises a natural question: how much of the structure of A does this encoding preserve? For instance, assuming A is a semi-group (i.e., closed under compositions a ′ • a ∈ A), does this transformation respect compositions: f (a ′ (a(x)) = R a ′ R a f (x)? This property does not hold for non-linear actions (Devillers & Lefort, 2023), but does for orthogonal equivariance:
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+Corollary 1. If L equi (f ) = 0 and {f (x) : x ∈ X } spans R d , then ρ : A → O(d) given by ρ(a) = R a satisfies ρ(a ′ • a) = ρ(a ′ )ρ(a)
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+for almost all a, a ′ . That is, ρ defines a group action on S d-1 up to a set of measure zero.
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+Formally, this result states that if A is a semi-group, then ρ : A → O(d) defines a group homomorphism (or linear representation of A in the sense of representation theory (Curtis & Reiner, 1966; Serre et al., 1977) , a branch of mathematics that studies the encoding of abstract groups as spaces of linear maps). To exactly attain L equi (f ) = 0, the space of augmentations A needs to have a certain structure, but this becomes less restrictive if d is large. Assuming for simplicity that A is a group, the first isomorphism theorem for groups states that ρ(A) ≃ A/ ker(ρ). For instance, if ker(ρ) is trivial, the equivariant loss can be exactly zero when the group of augmentations is a subgroup of the orthogonal group. Examples include orthogonal transformations or rotations that fix a subspace-i.e., O(d ′ ) or SO(d ′ ) with d ′ ≤ d-or subgroups of the permutation group on d elements. Furthermore, the Peter-Weyl theorem implies that any compact Lie group can be realized as a closed subgroup of O(d) for some d (Peter & Weyl, 1927) . As with Proposition 1, we also extend this result to the case of low loss that is not exactly zero, where we show that compositionality is approximately preserved.
+
+[THEORETICAL PROPERTIES OF ORTHOGONALLY EQUIVARIANT LOSS]
+R a f (x + 1 ) f (x) f f a f f (x + 2 ) R a′
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+To probe the geometric properties of CARE, we consider two efficiently computable metrics for empirically measuring the orthogonal equivariance in the embedding space.
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+Wahba's problem. A natural way to assess the equivariance of f is to sample a batch of data {x i } n i=1 and an augmentation a and test to what extent applying a transforms the embeddings of each x i the same way. To measure this we compute a single rotation that approximates the map from f (x i ) to f (a(x i )) for all i. Let F and F a ∈ R d×n have ith columns f (x i ) and f (a(x i )) respectively, then we compute the error W f = min R∈SO(d) ∥RF -F a ∥ Fro , where ∥ • ∥ Fro denotes the Frobenius norm.
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+If W f = 0, then f (a(x i )) = R a f (x i ) for all i. This is a well-studied problem known as Wahba's problem. The analytic solution to Wahba's problem is computed easily. It is nearly R * = U V ⊤ where U ΣV ⊤ is a singular value decomposition of F a F ⊤ . However, a slight modification is required as this R * could have determinant ±1, and therefore may not belong to SO(d). The only modification needed is to re-scale so that the determinant is one:
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+R * = U • diag 1 (n-1) , det(U )det(V ) • V ⊤
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+where 1 n denotes the vector in R n of all ones.
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+Relative rotational equivariance. Optimizing for the CARE objective may potentially result in learning invariance since for input image x, f (a(x)) = f (x) for a ∈ A is a trivial optimal solution of arg min f L equi (f ). To check that our model is learning non-trivial equivariance, we consider a metric similar to one proposed by Bhardwaj et al. ( 2023)
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+EQUATION
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+)
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+Here, the denominator measures the invariance of the representation, with smaller values corresponding to greater invariance to the augmentations. The numerator, on the other hand, measures equivariance and can be simplified to
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+[f (a(x ′ )) ⊤ f (a(x)) -f (x) ⊤ f (x ′ ) 2 (i.e., L equi (f )) up to a
+
+[MEASURING ORTHOGONAL ACTION ON EMBEDDING SPACE]
+constant, because f maps to the unit sphere. The ratio γ f of these two terms measures the non-trivial equivariance, with a lower value implying greater non-trivial orthogonal equivariance.
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+For Proposition 1, we show that when our equivariance loss is zero, the learned function is exactly equivariant. In practice, the equivariance loss may not exactly be minimized. Here, we give an approximate equivariance guarantee when the loss is small. The proof is based on Theorem 1 of Arias-Castro et al. ( 2020) (see Section C.1). For that, define
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+L equi (f, a) = E x,x ′ ∼X f (a(x ′ )) ⊤ f (a(x)) -f (x) ⊤ f (x ′ ) 2 (10)
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Proposition 3. Suppose we have a finite training set X = {x 1 , . . . , x n }. For an augmentation a ∈ A, suppose that
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+EQUATION
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+)
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+and that the matrix A = [f (x 1 ), . . . , f (x n )] ⊤ satisfies the conditions of Proposition 6. Let A ‡ denote the pseudoinverse of A. Then there is an
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+EQUATION
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+)
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+and hence for each
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+EQUATION
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+)
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Proof. The first inequality is a direct application of Proposition 6, where A = [f (x 1 ), . . . , f (x n )] ⊤ and B = [f (a(x 1 )), . . . , f (a(x n ))] ⊤ . The second inequality follows from the fact that ∥x∥ ∞ ≤ ∥x∥ 2 for vectors x ∈ R n .
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Corollary 2. If L equi (f, a) ≤ ϵ 4 for all a ∈ A and A = [f (x 1 ), . . . , f (x n )] ⊤ satisfies the conditions in Proposition 6 then ρ :
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+A → O(d) given by ρ(a) = R a satisfies ∥ρ(a ′ • a) -ρ(a ′ )ρ(a)∥ ≤ o(ϵ 2 )
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+for any a, a ′ ∈ A.
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Proof. Applying Proposition 3 on a ′ • a and using the triangle inequality, we have
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+∥R a ′ •a f (x) -R a ′ R a f (x)∥ ≤ ∥R a ′ •a f (x) -f (a ′ • a(x)) + f (a ′ • a(x)) -R a ′ R a f (x)∥ ≤ ∥R a ′ •a f (x) -f (a ′ • a(x))∥ + ∥f (a ′ • a(x)) -R a ′ R a f (x)∥ ≤ ∥f (a ′ • a(x)) -R a ′ R a f (x)∥ + (1 + √ 2) A ‡ ϵ 2
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Now, using triangle inequality again, we have
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+∥R a ′ •a f (x) -f (a ′ • a(x))∥ = ∥f (a ′ • a(x)) -R a ′ f (a(x)) + R a ′ f (a(x)) -R a ′ R a f (x)∥ ≤ ∥f (a ′ • a(x)) -R a ′ f (a(x))∥ + ∥R a ′ f (a(x)) -R a ′ R a f (x)∥
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Taking x = a(x), using the submultiplicativity property of matrix norms and applying Proposition 3 twice we have,
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+∥f (a ′ • a(x)) -R a ′ f (a(x))∥ + ∥R a ′ f (a(x)) -R a ′ R a f (x)∥ = ∥f (a ′ (x)) -R a ′ f (x)∥ + ∥R a ′ (f (a(x)) -R a f (x))∥ ≤ ∥f (a ′ (x)) -R a ′ f (x)∥ + ∥R a ′ ∥ ∥(f (a(x)) -R a f (x))∥ ≤ (1 + √ 2) Ā ‡ ϵ 2 + (1 + √ 2) A ‡ ϵ 2
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Hence,
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+∥R a ′ •a f (x) -R a ′ R a f (x)∥ ≤ (1 + √ 2) Ā ‡ ϵ 2 + (2 + 2 √ 2) A ‡ ϵ 2 where A = [f (x 1 ), . . . , f (x n )] ⊤ and Ā = [f (a(x 1 )), . . . , f (a(x n ))] ⊤
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+By our assumption, we can choose a basis f
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+(x i1 ), f (x i2 ), ...f (x i d ) of R d , where i 1 , i 2 , ...i n ∈ [n].
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+We can then write any unit norm x in terms of this basis:
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+x = d j=1 c j f (x ij ). Letting B = [f (x i1 ), . . . , f (x i d )] ⊤ , we have B -1 x = c
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+. Thus, we can bound the 1-norm of c as
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+EQUATION
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Then using the triangle inequality, we have
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+∥R a ′ •a x -R a ′ R a x∥ = n j=1 c j R a ′ •a f (x ij ) -R a ′ R a f (x ij ) ≤ n j=1 |c j | R a ′ •a f (x ij ) -R a ′ R a f (x ij ) ≤ ∥c∥ 1 (1 + √ 2) A ‡ ϵ 2 ≤ √ d(1 + √ 2) A ‡ B -1 ϵ 2 .
+
+[B.1 APPROXIMATE EQUIVARIANCE FOR NONZERO LOSS]
+Taking the supremum over all unit norm x finishes the proof.
+
+[E IMPLEMENTATION DETAILS]
+Algorithm 1 presents pytorch-based pseudocode for implementing CARE. This implementation introduces the idea of using a smaller batch size for the equivariance loss compared to the InfoNCE loss. Specifically, by definition, the equivariance loss is defined as a double expectation, one over data pairs and the other over augmentations. Empirical observations reveal that sampling one augmentation per batch leads to unstable yet superior performance when compared to standard invariant-based baselines such as SimCLR. Since these invariant-based contrastive benchmarks generally perform well with large batch sizes, we adopt the approach of splitting a batch into multiple chunks to efficiently sample multiple augmentations per batch for the equivariance loss. Each chunk of the batch is associated with a new pair of augmentations, ensuring a large batch size for the InfoNCE loss and a smaller batch size for the equivariance loss.
+
+[E IMPLEMENTATION DETAILS]
+Algorithm 1 PyTorch based pseudocode for CARE 
+
+[E IMPLEMENTATION DETAILS]
+(f ) = infonce_loss(z inv 1 , z inv 2 ) 16: Lequiv(f ) = orthogonal_equivariance_loss(z equiv 1 , z equiv 2 , n_split) 17: LCARE(f ) = LInfoNCE(f ) + λ • Lequiv(f ) 18: /*

@@ -1,0 +1,84 @@
+[Abstract]
+Deep neural networks (DNNs) are widely used models for investigating biological visual representations. However, existing DNNs are mostly designed to analyze neural responses to static images, relying on feedforward structures and lacking physiological neuronal mechanisms. There is limited insight into how the visual cortex represents natural movie stimuli that contain context-rich information.
+To address these problems, this work proposes the long-range feedback spiking network (LoRaFB-SNet), which mimics top-down connections between cortical regions and incorporates spike information processing mechanisms inherent to biological neurons. Taking into account the temporal dependence of representations under movie stimuli, we present Time-Series Representational Similarity Analysis (TSRSA) to measure the similarity between model representations and visual cortical representations of mice. LoRaFB-SNet exhibits the highest level of representational similarity, outperforming other well-known and leading alternatives across various experimental paradigms, especially when representing long movie stimuli. We further conduct experiments to quantify how temporal structures (dynamic information) and static textures (static information) of the movie stimuli influence representational similarity, suggesting that our model benefits from longrange feedback to encode context-dependent representations just like the brain. Altogether, LoRaFB-SNet is highly competent in capturing both dynamic and static representations of the mouse visual cortex and contributes to the understanding of movie processing mechanisms of the visual system. Our codes are available at https://github.com/Grasshlw/SNN-Neural-Similarity-Movie.
+
+[Architecture]
+We develop LoRaFB-SNet guided by two principles of biological plausibility. First, we use the LIF neuron (see Appendix A) as the basic unit of our network, which models the membrane potential dynamics of biological neurons [55] and encodes information through spike sequences like the visual cortex. Second, we design the long-range feedback structure to mimic cross-regional top-down connections that are widespread in the mouse visual cortex (Figure 2A ). This long-range recurrence is complementary to spiking neurons with self-accumulation for representing temporal information.
+
+[Architecture]
+As feedforward connections are dominant in the visual cortex, the backbone of LoRaFB-SNet is still feedforward, with the recurrent module embedded to introduce long-range feedback (Figure 2B ). In particular, the construction of the recurrent module is described as follows.
+
+[Architecture]
+The recurrent module consists of three components: a feedforward module, a long-range feedback module, and a fusion module. The feedforward module is a submodule of the backbone network, consisting of a stack of convolution, pooling, batch normalization, and spiking neurons, which plays a major role in abstracting spatial features from visual stimuli and encoding the visual content. This module receives the fused features of the outputs from the long-range feedback module and the previous stage. The long-range feedback module is composed of depthwise transposed convolution, batch normalization, and spiking neurons. On the one hand, depthwise transposed convolution effectively reduces the number of network parameters and upsamples the feature map to match the inputs. On the other hand, some work has shown that such a structure might mimic parallel information processing streams in mouse cortical regions and improve representational similarity [22] . The fusion module first concatenates the inputs of the current module (the outputs of the previous stage) and the outputs of the long-range feedback module in the channel dimension, and then integrates the feedforward and feedback information through pointwise convolution, batch normalization, and spiking neurons. The recurrent module can be formulated as:
+
+[Architecture]
+EQUATION
+
+[Architecture]
+EQUATION
+
+[Architecture]
+EQUATION
+
+[Architecture]
+where SN is spiking neurons, BN is batch normalization, DW is depthwise transposed convolution, PW is pointwise convolution, CONCAT is channel-wise concatenation. O l t denotes the outputs of stage l at time step t. Similarly, R l t and A l t denote the outputs of the long-range feedback and fusion modules respectively. F l denotes all operations in the feedforward module (Appendix B).
+
+[Pre-Training and Representation Extraction]
+We pre-train LoRaFB-SNet on the UCF101 dataset and the ImageNet dataset using SpikingJelly [12] . Specifically, for training the video action recognition task on UCF101, each sample (a video clip) contains 16 frames, and one frame is the input at each time step (the simulating time steps T = 16).
+
+[Pre-Training and Representation Extraction]
+For training the object recognition task on ImageNet, each sample (an image) is input to networks 4 times (the simulating time steps T = 4). See Appendix C for details.
+
+[Pre-Training and Representation Extraction]
+After pre-training the networks, we feed them with the same movie stimuli used in the neural dataset and obtain features from all selected layers. For networks trained on UCF101, the entire movie is continuously and uninterruptedly fed into networks in the form of one frame per time step. For networks trained on ImageNet, all frames in the movie are considered as independent images and are fed into networks separately. Each movie frame is input 4 times, which is consistent with training.
+
+[Models for Comparisons]
+We select three models for comprehensive comparisons to demonstrate the effectiveness of each character in LoRaFB-SNet.
+
+[Models for Comparisons]
+CORnet It is one of the most influential recurrent networks [35] for modeling the visual cortex and has been used as a benchmark in many studies [6, 7] . The prototype was trained on ImageNet and here we pre-train it on UCF101 with the same training procedure as LoRaFB-SNet. The comparison with CORnet, which has recurrent connections but lacks the spike mechanism, aims to show the critical role of spiking neurons in our model. fixed-length filters to process temporal data, allowing comparison between different approaches to dynamic information processing.
+
+[Ablation Studies for Training Datasets and Model Structures]
+To figure out whether the static content of UCF101 data or the temporal structure of continuous videos benefits LoRaFB-SNet to capture brain-like representations, we build two datasets based on UCF101 to pre-train LoRaFB-SNet and compare their similarity. One dataset consists of continuous videos from UCF101, while the other consists of disordered and discontinuous videos made up of randomly selected frames from UCF101. As shown in Table 2 , LoRaFB-SNet trained on continuous videos outperforms that trained on discontinuous videos, suggesting that the temporal structure rather than the static content plays an important role. Furthermore, LoRaFB-SNet trained on discontinuous videos performs even worse than that trained on ImageNet, showing that the static content of UCF101 is not closer to the test movie stimuli than that of ImageNet in terms of data distribution.
+
+[Ablation Studies for Training Datasets and Model Structures]
+To consolidate the conclusion about the effectiveness of spiking neurons and long-range feedback connections, we perform direct comparisons with two models trained on UCF101, one without spiking neurons but with the same structure as LoRaFB-SNet (No-spike), and the second with the same spiking neurons and feed-forward structure but without feedback connections (SEW-ResNet).
+
+[Ablation Studies for Training Datasets and Model Structures]
+The results in Table 2 show that the model lacking either of these characters performs worse than our model, providing further evidence that both characters of our model play a critical role.
+
+[A Spiking Neuron Model]
+The spiking neuron model we used in LoRaFB-SNet is the Leaky Integrate-and-Fire (LIF) model. As mentioned in [14, 13] , V t , X t and S t denote the state (membrane voltage), input (current) and output (spike) of the spiking neuron model respectively at time step t, and the dynamics of the LIF model can be described as follows:
+
+[A Spiking Neuron Model]
+EQUATION
+
+[A Spiking Neuron Model]
+EQUATION
+
+[A Spiking Neuron Model]
+EQUATION
+
+[A Spiking Neuron Model]
+)
+
+[A Spiking Neuron Model]
+While V t is the membrane voltage after the trigger of a spike, H t is also the membrane voltage, but after charging and before a spike firing. τ is the membrane time constant to control the rate of spiking neuron leakage. Θ(x) is the unit step function, so S t equals 1 if H t is greater than or equal to the threshold voltage V thresh and 0 otherwise. Meanwhile, V t is reset to V reset when a spike fires. Here, we set τ = 2, V thresh = 1, and V reset = 0, which are widely used empirical values for the visual task training.
+
+[A Spiking Neuron Model]
+Considering that Θ(x) is non-differentiable at 0, we use the inverse tangent function as the surrogate gradient function [41] to approximate the derivative function during back-propagation.
+
+[B Detailed Structure of Feedforward Module]
+The feedforward module is a submodule of the backbone network, which is made up of a stack of convolution, pooling, batch normalization, and spiking neurons. We adopt the residual block in SEW-ResNet [13] , which cures the vanishing/exploding gradient problems of spiking networks.
+
+[B Detailed Structure of Feedforward Module]
+The feedforward modules of all stages in LoRaFB-SNet share this structure but with different hyperparameters (Figure 5 ). 
+
+[C Pre-Training Implementation]
+In order for networks to extract meaningful features from the visual input, we pre-train them with two visual tasks. Specifically, LoRaFB-SNet, SEW-ResNet and CORnet are pre-trained with the video action recognition task on UCF101, and the first two are also pre-trained with the object recognition task on ImageNet. Notably, ResNet-2p-CPC has already been pre-trained on UCF101 in the original paper [1] and we directly adopt its open-source parameters. The pre-training implementation is detailed as follows.
+
+[Pre-Training on UCF101]
+In the pre-training procedure on UCF101, all video frames are resized to 224 × 224 and each sample is a video clip of 16 frames that are continuously fed into networks. Since the input at each time step is a video frame, the simulating time steps T of networks are 16. All networks are trained on UCF101 for 100 epochs on 8 GPUs (NVIDIA V100) with a mini-batch size of 32. The optimizer is SGD with a momentum of 0.9 and a weight decay of 0.0001. The initial learning rate is 0.1 and we apply a linear warm-up for 10 epochs. We decay the learning rate with cosine annealing, where the maximum number of iterations is equal to the number of epochs.
+
+[Pre-Training on ImageNet]
+In the pre-training procedure on ImageNet, each image is resized to 224 × 224 and fed into spiking networks 4 times. In other words, for each sample, spiking networks are simulated with time steps T = 4, and the input is the same image at each time step. We train all spiking networks on ImageNet for 320 epochs on 8 GPUs (NVIDIA V100) with a mini-batch size of 32. We also use SGD as the optimizer and set the momentum to 0.9 and the weight decay to 0. The initial learning rate is 0.1 with a linear warm-up for 5 epochs. Cosine annealing with the maximum number of iterations equal to the number of epochs is also applied to decay the learning rate.

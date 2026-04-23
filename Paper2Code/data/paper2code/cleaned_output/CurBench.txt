@@ -1,0 +1,32 @@
+[Abstract]
+Curriculum learning is a training paradigm where machine learning models are trained in a meaningful order, inspired by the way humans learn curricula. Due to its capability to improve model generalization and convergence, curriculum learning has gained considerable attention and has been widely applied to various research domains. Nevertheless, as new curriculum learning methods continue to emerge, it remains an open issue to benchmark them fairly. Therefore, we develop CurBench, the first benchmark that supports systematic evaluations for curriculum learning. Specifically, it consists of 15 datasets spanning 3 research domains: computer vision, natural language processing, and graph machine learning, along with 3 settings: standard, noise, and imbalance. To facilitate a comprehensive comparison, we establish the evaluation from 2 dimensions: performance and complexity. CurBench also provides a unified toolkit that plugs automatic curricula into general machine learning processes, enabling the implementation of 15 core curriculum learning methods. On the basis of this benchmark, we conduct comparative experiments and make empirical analyses of existing methods.
+
+[Modules]
+To facilitate the use of our CurBench, we develop a companion toolkit based on CurML (Zhou et al., 2022a) for the entire pipeline of applying curriculum learning to various machine learning tasks, reproducing 15 core methods. Compared to CurML, this toolkit extends the methods to accommodate inputs in various data formats and diverse output evaluation metrics and provides searched hyperparameters for each method. As illustrated in Figure 2 , we summarize and abstract the whole toolkit into 5 modules: data processing, model loading, objective fitting, curriculum learning, and evaluation.
+
+[Modules]
+Data Processing: This module aims to prepare data according to the specified dataset and setting. Given a data name in a format like "cifar10", "cifar100-noise-p" or "tinyimagenetimbalance-r", this module can automatically parse it, split the dataset into training, validation, and test set, and process the training set by adding noise with probability p or forming imbalance with factor r.
+
+[Modules]
+Model Loading: This module is used to initialize the model based on the model name and the target dataset. For instance, CV models need to modify their input layer to accommodate input images and patch sizes. Similarly, graph models require node features and edge relationships when construct- ing graph convolutional layers. Besides, the class number of the dataset determines the models' output layer.
+
+[C. Backbone Models]
+For the standardization and reliability of CurBench, we implement all backbone models by referencing highly recognized code repositories as shown in Table 5 . Among these models, BERT and GPT2 are initiated with the pretrained parameters from Hugging Face and finetuned in this work, while others are trained from scratch.
+
+[D. Curriculum Learning Methods]
+When designing CurBench, we are inclined to the datasets and models used in previous works for evaluation. Therefore, we have surveyed what datasets and models are commonly employed and completed the Table 6 .
+
+[D. Curriculum Learning Methods]
+It can be obviously found that when researchers propose a curriculum learning method, they always conduct experiments on image classification tasks for performance evaluation. Only a few authors will try to apply their methods to the datasets for object detection or neural machine translation. Besides, not all works take different settings, such as noise or imbalance, into consideration.
+
+[D. Curriculum Learning Methods]
+Therefore, as stated in the main text, we not only select the datasets and models in the CV domain, which are commonly used in previous related works, but also supplement those in the NLP and graph domains to investigate how the methods can adapt to various scenarios.
+
+[E. Training Hyperparameters]
+To ensure a fair evaluation, we run 5 times with fixed different random seeds s ∈ {42, 666, 777, 888, 999}, and report the average and standard deviation results. Besides, we strictly set the training hyperparameters as follows:
+
+[E. Training Hyperparameters]
+LeNet, ResNet-18, ViT: We choose a batch size of 50, and use an Adam optimizer to train the model with a constant learning rate of 0.0001 for 200 epochs.
+
+[F. Method Hyperparameters]
+For a reproducible evaluation, we demonstrate the hyperparameters that we select for curriculum learning methods in Table 7 . It should be noted that this table includes the hyperparameters for the experiments with 200 epochs. For text domain tasks trained for 3 or 10 epochs, we sightly adjust some epoch-related hyperparameters to adapt the tasks, such as grow epochs, warm epochs, and schedule epochs.

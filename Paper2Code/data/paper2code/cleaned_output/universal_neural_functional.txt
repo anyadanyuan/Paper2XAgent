@@ -1,0 +1,197 @@
+[Abstract]
+A challenging problem in many modern machine learning tasks is to process weight-space features, i.e., to transform or extract information from the weights and gradients of a neural network. Recent works have developed promising weight-space models that are equivariant to the permutation symmetries of simple feedforward networks. However, they are not applicable to general architectures, since the permutation symmetries of a weight space can be complicated by recurrence or residual connections. This work proposes an algorithm that automatically constructs permutation equivariant models, which we refer to as universal neural functionals (UNFs), for any weight space. Among other applications, we demonstrate how UNFs can be substituted into existing learned optimizer designs, and find promising improvements over prior methods when optimizing small image classifiers and language models. Our results suggest that learned optimizers can benefit from considering the (symmetry) structure of the weight space they optimize. We open-source our library for constructing UNFs at https://github.com/AllanYangZhou/universal_neural_functional.
+
+[Equivariant layers between tensors]
+Algorithm 1 Basis for equivariant W (m) → W (ℓ) layer 
+
+[Equivariant layers between tensors]
+Require: W (m) , W (ℓ) 1: Initialize basis B ℓm ← { } 2: I ← { o 1 , • • • , o D ℓ , i 1 , • • • , i
+
+[Equivariant layers between tensors]
+E P (X) c[o1],••• ,c o[D ℓ ] := R X c[i1],••• ,c[i Dm ]
+
+[Equivariant layers between tensors]
+9:
+
+[Equivariant layers between tensors]
+B ℓm ← B ℓm ∪ { E P } 10: end for 11: return B ℓm Since weights are tensors, our decomposed problem involves finding bases for permutation equivariant maps between tensors. Variants of this problem have been studied by numerous prior works-in particular, Maron et al. [2018] theoretically characterize a basis for equivariant maps between arbitrary-rank tensors, and provide a concrete implementation of the basis functions in the rank-2 case. Here, we describe a general algorithm that automatically constructs a basis for permutation equivariant maps between arbitrary-rank tensors. Concretely, it implements each basis function in terms of simple array operations that are amenable to efficient computation with modern deep learning frameworks.
+
+[Equivariant layers between tensors]
+Functions in L S W (m) , W (ℓ) take input tensors indexed by { i 1 , • • • , i Dm } and produces output tensors indexed by { o 1 , • • • , o D ℓ }. We can construct a basis B ℓm for this space where each element is identified by a valid partition P of these indices. Recall that the indices
+
+[Equivariant layers between tensors]
+(i 1 , i 2 , • • • ) of W (m) are permuted by σ d m 1 , σ d m 2 , • • • .
+
+[Equivariant layers between tensors]
+We say that two indices i 1 and i 2 "permute simultaneously" if d m 1 = d m 2 . Definition 1. A valid partition is a partition P of the output and input indices
+
+[Equivariant layers between tensors]
+I = { o 1 , • • • , o D ℓ , i 1 , • • • , i Dm } into
+
+[Equivariant layers between tensors]
+non-empty subsets, such that each subset only contains indices that are permuted simultaneously.
+
+[Equivariant layers between tensors]
+Example 3.1 (W (m) = W (ℓ) = R n1×n2 ).
+
+[Equivariant layers between tensors]
+Here the output and input indices are
+
+[Equivariant layers between tensors]
+{ o 1 , o 2 , i 1 , i 2 }. The partition { { o 1 , o 2 } , { i 1 , i 2 } } is not valid because o 1 ,
+
+[Equivariant layers between tensors]
+o 2 are permuted by σ 1 , σ 2 , so they do not permute simultaneously. On the other hand,
+
+[Equivariant layers between tensors]
+{ { o 1 , i 1 } , { o 2 , i 2 } } is a valid partition. Example 3.2 (W (m) = W (ℓ) = R n1×n1 ). This time, the partition { { o 1 , o 2 } , { i 1 , i 2 } } is valid because o 1 , o 2 are both permuted by σ 1 , as are i 1 , i 2 .
+
+[Equivariant layers between tensors]
+To construct the equivariant basis, we enumerate all valid partitions and then map each partition P to a basis function E P . Concretely, we label each subset of P with a distinct character α, β, γ, • • • and then remap each of our original indices
+
+[Equivariant layers between tensors]
+{ o 1 , • • • , o D ℓ , i 1 , • • • , i Dm } to
+
+[Equivariant layers between tensors]
+a a character based on which subset the index was in. This mapping is best illustrated by continuing our previous example.
+
+[Equivariant layers between tensors]
+Example 3.3 (W (m) = W (ℓ) = R n1×n2 ).
+
+[Equivariant layers between tensors]
+Here input and output are both matrices, with combined indices { o 1 , o 2 , i 1 , i 2 }. We have two permutations (σ 1 , σ 2 ) ∈ S n1 × S n2 that can act on the rows and columns of the input and output matrices. There are four valid partitions:
+
+[Equivariant layers between tensors]
+EQUATION
+
+[Equivariant layers between tensors]
+Consider P 2 -we assign a character to each subset:
+
+[Equivariant layers between tensors]
+EQUATION
+
+[Equivariant layers between tensors]
+)
+
+[Equivariant layers between tensors]
+which tells us to remap the output indices (o 1 , o 2 ) → (α, β) and the input indices
+
+[Equivariant layers between tensors]
+(i 1 , i 2 ) → (α, γ), producing the basis function E P2 W (m) αβ := γ W (m)
+
+[Equivariant layers between tensors]
+αγ , where summation over γ can be inferred because it only contains an input index.
+
+[Equivariant layers between tensors]
+Repeating this index-remapping process for each valid partition will generate a total of four basis functions E P1 , • • • , E P4 for L S W (m) , W (ℓ) . Our equivariant W (m) → W (ℓ) layer will be defined as the linear combination m) , which is the layer introduced in Hartford et al. [2018] .
+
+[Equivariant layers between tensors]
+T ℓm W (m) ; λ := 4 k=1 λ k • E P k W (
+
+[Equivariant layers between tensors]
+To generalize the previous example, for each valid partition of the indices P we label its subsets with characters α, β, γ, • • • and then construct a basis function:
+
+[Equivariant layers between tensors]
+EQUATION
+
+[Equivariant layers between tensors]
+where c[•] maps each index to the subset of P that contains it. We sum over the characters in R, which is the (possibly empty) subset of characters that only contain input indices (i.e., only appear on the right-hand side). Entries that are not explicitly assigned by the left-hand side are 0. Algorithm 1 gives a formal description of the complete process for generating B ℓm .
+
+[Equivariant layers between tensors]
+Theorem 3.2. Algorithm 1 produces a basis for the equivariant linear maps from W (m) to W (ℓ) .
+
+[Equivariant layers between tensors]
+Proof. See Appendix B.1.
+
+[Equivariant layers between tensors]
+Once Algorithm 1 has generated a basis of equivariant functions B ℓm , we can implement an equivariant layer using a vector λ ℓm ∈ R |B ℓm | of learned coefficients:
+
+[Equivariant layers between tensors]
+EQUATION
+
+[Equivariant layers between tensors]
+)
+
+[Equivariant layers on weight spaces]
+Theorem 3.1 now tells us that we may now construct the equivariant weight-space layer by combining the bases { B ℓm } into a basis B of functions on W. The weight-space layer T (•, λ) can then be defined by a linear combination of the basis functions with learned coefficients λ. Explicitly, the full layer is defined:
+
+[Equivariant layers on weight spaces]
+EQUATION
+
+[Equivariant layers on weight spaces]
+where m) , λ ℓm . Appendix A provides a concrete description of how we specify the weight space in code and how the algorithm is then used to automatically construct an equivariant weight space layer. Our open-source implementation is compatible with most JAX [Bradbury et al., 2018] neural network libraries. Theorem 3.3. The weight-space layer (Eq.-13) is S-equivariant, and can express any linear equivariant function on W.
+
+[Equivariant layers on weight spaces]
+λ ℓ,: = { λ ℓm | ℓ = 1, • • • , L } and T ℓ W, λ ℓ,: = L m=1 T ℓm W (
+
+[Equivariant layers on weight spaces]
+Proof. Each T ℓm is a linear combination of basis functions in B ℓm . Then, as described by Thm 3.1, Eq. 13 is a linear combination of functions that form a basis for L S (W, W).
+
+[Equivariant layers on weight spaces]
+For an MLP weight space with neuron permutation group defined as in Example 2.1, this approach will generate the exact same layer as NFN NP [Zhou et al., 2023a] . This is because the layers each parameterize all possible linear maps equivariant to the same symmetry group, and hence can express the same set of functions.
+
+[Deep models]
+The previous sections describes the construction of S-equivariant layers that operate operate on weight-space features in W c . We construct universal neural functionals by stacking multiple such layers (interleaved with pointwise non-linearities) into a deep, permutation equivariant model that can process weights. To construct a permutation invariant model, we can add an invariant pooling layer after the equivariant layers, as in prior work [Navon et al., 2023 , Zhou et al., 2023a] .
+
+[Learned optimizers]
+Choosing the optimizer is a key step in training any modern neural network. Though most popular optimizers are variants of stochastic descent, the non-convexity of neural network training leaves few rigorous guidelines for ideal optimizer design. This has led some researchers to propose training good optimizers using some form of meta-learning [Bengio et al., 1990 , 2013 , Andrychowicz et al., 2016 , Wichrowska et al., 2017 , Metz et al., 2019] .
+
+[Learned optimizers]
+Common optimizers today (including the learned ones) are equivariant to any permutation of the weights. This is because permuting the weights also permutes the gradients, so stochastic gradient descent and similar optimizers will produce permuted updates. However, equivariance to any permutation ignores the actual symmetry structure of the optimized neural network. Arguably the more appropriate constraint is to only require equivariance to the neuron permutation group, which enables more expressive optimizers while still respecting the symmetries of the weight space. As we will see, this can be achieved by using UNFs to implement a learned optimizer.
+
+[Learned optimizers]
+Training learned optimizers that generalize well is extremely compute-intensive [Metz et al., 2022] , so we conduct our experiments in several smaller settings to analyze the impact of architecture Figure 2 : Training loss (negative log-likelihood) curves for different tasks and architectures using meta-learned optimizers. We implement learned optimizers with either universal neural functionals (UNFs), NFNs [Zhou et al., 2023a] , or Deep Sets [Zaheer et al., 2017] . Deep Sets are the current standard choice for implementing learned optimizers. Note that NFN is identical to UNF in the MLP case, different for CNN case, and not applicable to RNNs or Transformers. All loss curves are smoothed and averaged over 5 random initializations (3 for Transformer), with shaded regions showing standard error. choice on learned optimizer performance. In each setting, an optimizer is meta-trained to optimize an architecture type on a task from random initializations. Following Harrison et al. [2022] , our learned optimizers track momentum terms m γ t ← γm t-1 + ∇ t and produce updates of the form:
+
+[Learned optimizers]
+EQUATION
+
+[Learned optimizers]
+Here αm γ0 t is a "nominal term" that biases the learned optimizer to behave like stochastic gradient descent with momentum coefficient γ 0 . The neural functional f (•) ingests weights W t , gradients ∇ t , momentum terms at several coefficients { m γi t } i , and the iteration t. During meta-training, we optimize network f and scalars α, β, γ 0 to minimize the task training loss after a fixed number of training steps T , the "inner training horizion." To avoid the issue of backpropagating through an optimization process, we estimate meta-gradients using persistent evolutionary strategies [Vicol et al., 2021] .
+
+[Learned optimizers]
+Comparisons. The default architecture choice for f (•) in prior work is Deep Sets [Zaheer et al., 2017] , which offers equivariance to any permutation symmetry. We study the effect of replacing Deep Sets by UNFs. We also try the NFN NP architecture [Zhou et al., 2023a] where applicable, though it cannot be used on the RNN and Transformer experiments. Finally, we consider stochastic gradient descent with momentum (SGDM), which is equivalent to fixing β = 0 in Eq. 15. The SGDM baseline is also meta-trained to tune the learning rate α and momentum decay rate γ 0 . We compare the different learned optimizers in four tasks: MLP on FashionMNIST. Each optimizer trains an MLP classifier on a downsized and flattened version of the FashionMNIST dataset [Xiao et al., 2017] . We note that for MLP weight spaces, UNF are identical to NFN NP [Zhou et al., 2023a] .
+
+[Learned optimizers]
+CNN on CIFAR-10. Each optimizer trains a convolutional classifier on a downsized 16 × 16 CIFAR-10. In this setting our algorithm produces a UNF that is different to NFN NP (see Example 2.3).
+
+[B.2 Size of basis produced by Algorithm 1]
+Suppose we have a neuron permutation symmetry group ℓ) to be the number of indices that σ i ∈ S ni permutes in weight tensors W (ℓ) ∈ W (ℓ) (which could be 0). Finally, denote b(k) to be the k'th Bell number. Then the number of basis functions generated by Algorithm 1 is:
+
+[B.2 Size of basis produced by Algorithm 1]
+S = S n1 × • • • × S n N , i.e., every neuron permutation σ is composed of N distinct permutations (σ 1 , • • • , σ N ). For each i = 1, • • • , N we define c i W (
+
+[B.2 Size of basis produced by Algorithm 1]
+EQUATION
+
+[B.3 Comparison to MPNN-based approaches]
+Each UNF layer can express any linear equivariant function on a given weight space (Thm 3.3).
+
+[B.3 Comparison to MPNN-based approaches]
+Compared to methods based on message-passing neural networks (MPNNs), this means UNFs can have very expressive individual layers, but may also be more computationally challenging due to the growth in the size of the basis (see next section).
+
+[B.3 Comparison to MPNN-based approaches]
+As an example, consider a simple "RNN" where h t+1 = W h t and h t ∈ R n has exchangeable entries, meaning that W → P W P T is a symmetry. Algorithm 1 would produce an equivariant basis with b(2 + 2) = 15 terms4 .
+
+[B.3 Comparison to MPNN-based approaches]
+On the other hand, we could construct a parameter graph [Lim et al., 2023] with n nodes and 2n 2 directed edges between them (allowing a forward and backward edge for each weight, equivalently n 2 undirected edges). Then using a similar construction to Lim et al. [2023, Appendix C.1.2] , we would get a linear GNN that computes:
+
+[B.3 Comparison to MPNN-based approaches]
+EQUATION
+
+[B.3 Comparison to MPNN-based approaches]
+which is a linear combination of 6 equivariant basis functions, instead of 15. This leads to a potientially interesting trade-off between expressivity vs tractability. However, we also note that in practice MPNNs use non-linear MLPs in their message passing updates, and the comparison between UNF and MPNN-style approaches remains an open empirical question.
+
+[C.2 Learned optimization meta-training]
+Call DS[c] a single equivariant Deep Set layer [Zaheer et al., 2017, Eq 4 ] with c output channels (similarly for UNF[c] and NFN[c]). Then f (•) in our learned optimizers (Eq. 15) is always implemented as a feedforward architecture:
+
+[C.2 Learned optimization meta-training]
+DeepSetOpt = DS[32] -> ReLU -> DS[32] -> ReLU -> DS[32] -> ReLU -> DS[1] UNFOpt = DS[32] -> ReLU -> DS[32] -> ReLU -> DS[32] -> ReLU -> UNF[1] NFNOpt = DS[32] -> ReLU -> DS[32] -> ReLU -> DS[32] -> ReLU -> NFN[1]
+
+[C.2 Learned optimization meta-training]
+For all methods, we initialize α = 0.1 and γ 0 = 0.9 before starting meta-training. For non-SGDM methods, we initialize β = 0.001, and provide six momentum values { m γi t } i with coefficients γ i = 0.1, 0.5, 0.9, 0.99, 0.999, 0.9999. The iteration number t is converted into an 11-dimensional sinusoidal encoding, and all inputs to f (•) are concatenated along the channel dimension. Concretely, this results in an input in W 19 . The output is in W 1 .
+
+[C.2 Learned optimization meta-training]
+We meta-train for 50,000 steps using Adam, estimating meta-gradients over 16 parallel training runs using persistent evolutionary strategies (PES) [Vicol et al., 2021] with a truncation length of 50 and a noise standard deviation of 0.01. The meta-training objective is training loss at the end of the inner training horizon (T = 5,000 for the Transformer setting, and T = 2,000 otherwise), and we apply a gradient clipping of 1.0.
+
+[C.2 Learned optimization meta-training]
+Size of each learned optimizer f (•). Since Deep Set layers are agnostic to the specific weight space being optimized, the Deep Set learned optimizer uses the same number of parameters in each task. The same is not true of UNF layers, where the number of parameters grows in proportion to the size of the bases generated by Algorithm 1. Table 3 lists the number of parameters in f (•) for each learned optimizer.

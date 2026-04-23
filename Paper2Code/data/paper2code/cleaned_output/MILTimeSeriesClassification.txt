@@ -1,0 +1,68 @@
+[Abstract]
+Conventional Time Series Classification (TSC) methods are often black boxes that obscure inherent interpretation of their decision-making processes. In this work, we leverage Multiple Instance Learning (MIL) to overcome this issue, and propose a new framework called MILLET: Multiple Instance Learning for Locally Explainable Time series classification. We apply MILLET to existing deep learning TSC models and show how they become inherently interpretable without compromising (and in some cases, even improving) predictive performance. We evaluate MILLET on 85 UCR TSC datasets and also present a novel synthetic dataset that is specially designed to facilitate interpretability evaluation. On these datasets, we show MILLET produces sparse explanations quickly that are of higher quality than other well-known interpretability methods. To the best of our knowledge, our work with MILLET, which is available on GitHub 1 , is the first to develop general MIL methods for TSC and apply them to an extensive variety of domains.
+
+[METHODOLOGY]
+To apply MIL to TSC, we propose the broad framework MILLET: Multiple Instance Learning for Locally Explainable Time series classification. We advocate for the use of MIL in TSC as it is a natural fit that provides inherent interpretability (explanations for free) without requiring any additional labelling beyond that already provided by existing TSC datasets (we further discuss our motivation for using MIL in App. A).
+
+[THE MILLET FRAMEWORK]
+A TSC model within our MILLET framework has to satisfy three requirements:
+
+[THE MILLET FRAMEWORK]
+Requirement 1: Time Series as MIL Bags Input data consists of time series, X i , where a time series is formed of t > 1 time points: X i = {x 1 i , x 2 i , . . . , x t i } and i is the sample index. 3 Each time step is a c-dimensional vector, where c is the number of channels in the time series -in this work we focus on univariate time series (c = 1) and assume all time series in a dataset have the same length. We consider each time series as a MIL bag, meaning each time point is a MIL instance. 4 A time series bag can be denoted as X i ∈ R t×c , and each bag has an associated bag-level label Y i which is the original time series label. There is also the concept of MIL instance labels {y 1 i , y 2 i , . . . , y t i }, but these are not provided for most MIL datasets (like the absence of time point labels in TSC). Framing TSC as a MIL problem allows us to obtain interpretability by imposing the next requirement.
+
+[THE MILLET FRAMEWORK]
+Requirement 2: Time Point Predictions To facilitate interpretability in our framework, we specify that models must provide time point predictions along with their time series predictions. Furthermore, the time point predictions should be inherent to the model -this makes it possible to identify which time points support and refute different classes without having to use post-hoc methods.
+
+[THE MILLET FRAMEWORK]
+Requirement 3: Temporal Ordering TSC is a sequential learning problem so we impose a further requirement that the framework must respect the ordering of time points. This is in contrast to classical MIL methods that assume MIL instances are iid.
+
+[MILLET DL MODEL DESIGN]
+We design three MILLET DL models by adapting existing backbone models that use GAP: FCN, ResNet, and InceptionTime. While extensions of these methods and other DL approaches exist (see Foumani et al., 2023) , we do not explore these as none have been shown to outperform InceptionTime (Middlehurst et al., 2023) . Nevertheless, the MILLET framework can be applied to any generic DL TSC approach that uses GAP or follows the high-level structure in Eqn. 1.
+
+[MILLET DL MODEL DESIGN]
+Replacing GAP with one of the four pooling methods in Sec. 3.2 yields a total of 12 new models. In each case, the backbone models produce feature embeddings of length d = 128 Z i ∈ R t×128 . The models are trained end-to-end in the same manner as the original backbone methods -we discuss additional options for training in Sec. 6. We introduce three further enhancements:
+
+[MILLET DL MODEL DESIGN]
+1. Positional Encoding: As time point classification and attention are applied to each time point independently, the position of a time point within the times series can be utilised (with GAP, positional encoding would be lost through averaging) -this allows for further expressivity of the ordering of time points and enforces Req. 3 of our MILLET framework. We inject fixed positional encodings (Vaswani et al., 2017) after feature extraction. 2. Replicate padding: Zero padding is used in the convolutional layers of the backbone architectures. However, in our interpretability experiments, we found this biased the models towards the start and end of the time series -padding with zeros was creating a false signal in the time series. As such, we replaced zero padding with replicate padding (padding with the boundary value) which alleviated the start/end bias. However, we note that particular problems may benefit from other padding strategies. 3. Dropout: To mitigate overfitting in the new pooling methods, we apply dropout after injecting the positional encodings (p = 0.1). No dropout was used in the original backbones.
+
+[MILLET DL MODEL DESIGN]
+The original InceptionTime approach is an ensemble of five identical network architectures trained from different initialisations, where the overall output is the mean output of the five networks. 
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+In the following section, we provide details on our MILLET models. For conciseness, we omit details on the backbone architectures. See Wang et al. (2017) for details on FCN and ResNet, and Ismail Fawaz et al. (2020) for details on InceptionTime. Each of the three feature extractor backbones used in this work produce fixed-size time point embeddings of length 128:
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+Z i ∈ R t×128 = [z 1 i , z 2 i , . . . , z t i ],
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+where t is the input time series length. This is the initial Feature Extraction phase and uses unchanged versions of the original backbones.
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+A breakdown of the general model structure is given in Eqn. A.1. Note how Positional Encoding is only applied after Feature Extraction. Furthermore, Positional Encoding and Dropout are only applied in MILLET models, i.e. when using Instance, Attention, Additive, or Conjunctive pooling.
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+Feature Extraction → Positional Encoding → Dropout → MIL Pooling (A.1)
+
+[B MODEL DETAILS B.1 MILLET MODEL ARCHITECTURES]
+Below we detail the Positional Encoding processes, and then give architectures for each of the MIL Pooling approaches. These are kept unchanged across backbones.
+
+[B.1.2 MIL POOLING ARCHITECTURES]
+In Tables A.1 to A.5 we provide architectures for the different MIL pooling methods used in this work (see Fig. 2 for illustrations). Each row describes a layer in the pooling architecture. In each case, the input is a bag of time point embeddings (potentially with positional encodings and dropout already applied, which does not change the input shape; see App. B.1.1). The input is batched with a batch size of b, and each time series is assumed to have the same length t. Therefore, the input is four dimensional: batch size × number of channels × time series length × embedding size. However, in this work, as we are using univariate time series, the number of channels is always one. The problem has c classes, and the pooling methods produce logit outputs -softmax is later applied as necessary. 
+
+[B.1.2 MIL POOLING ARCHITECTURES]
+) b × 1 × t × 8 Linear + sigmoid b × 1 × t × 8 b × 1 × t × 1 (Attn. Scores) Pooling Attn. Weighting b × 1 × t × 128 (Time Point Embs.) b × 1 × t × 128 Mean b × 1 × t × 128 b × 1 × 1 × 128 (TS Emb.) Classifier Linear b × 1 × 1 × 128 (Time Series Emb.) b × 1 × 1 × c (TS Pred.) Table A.3: MIL Pooling: Instance. Process Layer Input Output Classifier Linear b × 1 × t × 128 (Time Point Embs.) b × 1 × t × c (TP Preds.) Pooling Mean b × 1 × t × c (Time Point Preds.) b × 1 × 1 × c (TS Pred.) Table A.4: MIL Pooling: Additive. Process Layer Input Output Attention Linear + tanh b × 1 × t × 128 (Time Point Embs.) b × 1 × t × 8 Linear + sigmoid b × 1 × t × 8 b × 1 × t × 1 (Attn. Scores) Classifier Attn. Weighting b × 1 × t × 128 (Time Point Embs.) b × 1 × t × 128 Linear b × 1 × t × 128 b × 1 × t × c (TP Preds.) Pooling Mean b × 1 × t × c (Time Point Preds.) b × 1 × 1 × c (TS Pred.)
+
+[B.1.2 MIL POOLING ARCHITECTURES]
+Table A .5: MIL Pooling: Conjunctive. In this case, attention weighting scales the time point predictions by their respective attention scores, rather than scaling the embeddings. Process Layer Input Output
+
+[B.1.2 MIL POOLING ARCHITECTURES]
+Attention Linear + tanh b × 1 × t × 128 (Time Point Embs.) b × 1 × t × 8 Linear + sigmoid b × 1 × t × 8 b × 1 × t × 1 (Attn. Scores) Classifier Linear b × 1 × t × 128 (Time Point Embs.) b × 1 × t × c (TP Preds.) Pooling Attn. Weighting b × 1 × t × c (Time Point Preds.) b × 1 × t × c Mean b × 1 × t × c b × 1 × 1 × c (TS Pred.)
+
+[B.2 TRAINING AND HYPERPARAMETERS]
+In this work, all models were trained in the same manner. We used the Adam optimiser with a fixed learning rate of 0.001 for 1500 epochs, and trained to minimise cross entropy loss. Training was performed in an end-to-end manner, i.e. all parts of the networks (including the backbone feature extraction layers) were trained together, and no pre-training or fine-tuning was used. Dropout (if used) was set to 0.1, and batch size was set to min(16, ⌊num training time series/10⌋) to account for datasets with small training set sizes. For example, if a dataset contains only 100 training time series, the batch size is set to 10.
+
+[B.2 TRAINING AND HYPERPARAMETERS]
+No tuning of hyperparameters was used -values were set based on the those used for training the original backbone models. As the existing DL TSC methods used fixed hyperparameters, our decision not to tune the hyperparameters facilitates a fairer comparison. It also has the benefit of providing a robust set of default values for use in derivative works. However, better performance could be achieved by tuning hyperparameters for individual datasets. We would expect hyperparameter tuning for MILLET to have a greater impact than doing so for the GAP versions of the models as MILLET provides more scope for tuning (e.g. dropout, attention-head size, and whether to include positional encodings). As greater flexibility is achieved by having the ability to add/remove/tune the additional elements of MILLET, this would lead to more specialised models (and larger performance improvements) for each dataset. For example, in our ablation study (App. E.5), we found that positional encoding was beneficial for some datasets but not others.
+
+[B.2 TRAINING AND HYPERPARAMETERS]
+No validation datasets were used during training or evaluation . Instead, the final model weights were selected based on the epoch that provides the lowest training loss. As such, training was terminated early if a loss of zero was reached (which was a very rare occurrence, but did happen). Models started with random weight initialisations, but pseudo-random fixed seeds were used to enable reproducibility. For repeat training, the seeds were different for each repeat (i.e. starting from different random initialisations), but these were consistent across models and datasets.

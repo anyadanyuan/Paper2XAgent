@@ -1,0 +1,89 @@
+[Abstract]
+Graph Neural Network (GNN) resembles the diffusion process, leading to the over-smoothing of learned representations when stacking many layers. Hence, the reverse process of message passing can produce the distinguishable node representations by inverting the forward message propagation. The distinguishable representations can help us to better classify neighboring nodes with different labels, such as in heterophilic graphs. In this work, we apply the design principle of the reverse process to the three variants of the GNNs. Through the experiments on heterophilic graph data, where adjacent nodes need to have different representations for successful classification, we show that the reverse process significantly improves the prediction performance in many cases. Additional analysis reveals that the reverse mechanism can mitigate the over-smoothing over hundreds of layers. Our code is available at https://github.com/ ml-postech/reverse-gnn.
+
+[Method]
+We aim to introduce a framework that can learn distinct node representations between adjacent nodes through reverse diffusion. We first provide the overall framework of our approach and then show three substantiations of the framework for three baseline models.
+
+[Framework]
+We consider a graph G = (V, E), where V and E are a set of nodes and edges respectively, with additional d-dimensional node features represented as X ∈ R |V|×d for all node, and x i ∈ R d denotes the feature of node i. It is a well-known fact that a typical GNN layer f tends to learn similar representations between neighboring nodes, leading to the issue of over-smoothing. Chamberlain et al. (2021) highlighted that this is due to the diffusive property inherent in GNN structures.
+
+[Framework]
+In contrast to a typical GNN layer, we propose a GNN layer g that performs the opposite role by reversing diffusion and re-concentrating diffused information. Our main idea is to design an inverse function of a message-passing GNN layer f , with g = f -1 to perform the reversion. Due to the diffusive nature of the GNN layer f , its inverse form g is expected to have two properties: 1) g cancels the smoothing effect, producing distinguishable representations that mitigate the over-smoothing issue and thus 2) leading to stacking multiple layers of g.
+
+[Framework]
+Formally, with the inverse of multiple message passing layers, our framework predicts node label Y as follows:
+
+[Framework]
+Ŷ = ϕ(f (L) • • • • • f (1) (X (0) )∥g (1) • • • • • g (L) (X (0) )),
+
+[Framework]
+where X (0) is input node features, f (ℓ) is the ℓ-th forward message-passing layer with g (ℓ) = f (ℓ) -1 , L is the number of layers, ∥ denotes concatenation, and ϕ is a prediction function based on the forward and reverse processes of the input features. We concatenate the representations from both directions for prediction to utilize advantage of difference enhanced representation and smooth representaiton at the same time. In practice, we can set the number of forward and reverse layers differently as L F and L R , and share the parameters of different layers.
+
+[Framework]
+In the following sections, we propose a range of methods to develop a reverse diffusion function for GRAND and two variants of GNN with residual connections.
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+Input: output of residual layer X (ℓ) , residual block h, the number of fixed-point iterations M Output: input of residual layer
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+X (ℓ-1) X ← X (ℓ) for m = 1, . . . , M do X ← X -h(X) end for Return X When the scaling coefficient c < 1 is given, W is normal- ized to cW ∥W∥ F if c < ∥W∥ F , in order to satisfy Lip(h) < c. When multi-head attention with K heads is employed for GAT, parameters of k-th head W (k) is normalized to cW (k) 1 K K k=1 ∥W (k) ∥ F
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+for all k, since the upper bound result in
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+1 K K k=1 ∥W (k) ∥ F .
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+The derivation of the upper bound for multi-head attention is provided in Appendix C. Since residual block h is an operator on a Banach space, and we constraint the Lip(h) < 1, the convergence of Algorithm 1 is guaranteed by the Banach fixed point theorem (Behrmann et al., 2019) . Inversion error in practice are reported in Section 4.2.
+
+[Algorithm 1 Inverse of GNN via fixed-point iteration]
+While the time complexity of a GCN mainly depends on the number of the forward layers L F , the complexity of the reverse process depends on the number of fixed point iterations M and of the number of reverse layers L R . In our implementation, we run the fixed point iteration until convergence and backpropagate over the iterations. We provide the time and memory complexity analysis in Table 1 , and the proof is provided in Appendix A. An analysis on M and the run-time with varying L R in real experiments are provided in Section 4.3.
+
+[Analysis on the Number of Forward and Reverse Layers]
+To investigate whether many layers of reverse process improve performance in heterophilic datasets and compare its effect with that of many forward layers, we trained GCN+ReP with varying pairs of steps on two datasets: Chameleon and Minesweeper. Specifically, we vary the number of layers from 1 to 1024 in one direction.
+
+[Analysis on the Number of Forward and Reverse Layers]
+The prediction performances with varying numbers of layers are reported in Figure 2 . In both datasets, the prediction performance keeps increasing as the number of reverse layers increases. These results indicate that the reverse process is capable of deep stacking to mitigate over-smoothing. This enables the models to capture long-range dependencies effectively, which is known to be important, especially in heterophilic graphs. The prediction performance also tends to increase as we increase the number of forward steps up to 1024 in the Chameleon dataset.
+
+[Analysis on the Number of Forward and Reverse Layers]
+Over-Smoothing Analysis We evaluate whether the proposed reverse process mitigates the over-smoothing issue.
+
+[Analysis on the Number of Forward and Reverse Layers]
+To measure the degree of over-smoothing, we adopt Graph Smoothness Level (GSL) proposed by Zhang et al. (2022) defined as: where x i is the representation of node i. The GSL represents the average cosine similarity across all pairs of nodes in the graph. A GSL value closer to one indicates more severe over-smoothing.
+
+[Analysis on the Number of Forward and Reverse Layers]
+EQUATION
+
+[Analysis on the Number of Forward and Reverse Layers]
+Figure 3 shows GSL of GCN+ReP and GCN with varying numbers of layers on Squirrel and Chameleon datasets. In both datasets, the GSL of GCN+ReP remains below 0.6 up to 1024 reverse layers, whereas the learned representations from GCN with 32 and 64 layers tend to become similar even after eight layers. GCN with 16 layers shows relatively low GSL values yet still exceeds 0.9 after eight layers. Compared with CGN, GCN+ReP shows relatively less GSL, showing that the reverse process can mitigate the over-smoothing in the forward processes as well.
+
+[C. Multi-Head Attention for GAT]
+GAT calculates an attention matrix as follows:
+
+[C. Multi-Head Attention for GAT]
+EQUATION
+
+[C. Multi-Head Attention for GAT]
+)
+
+[C. Multi-Head Attention for GAT]
+where a ∈ R 2d is a learnable parameter. Our framework also adopts averaging when using multi-head attention and remains hidden dimension constant to ensure invertibility, resulting in: In this case, the Lipschitz constant of h, Lip(h) < 1 is satisfied if
+
+[C. Multi-Head Attention for GAT]
+h(X (ℓ) ) = σ( 1 K K k=1 Â(k) X (ℓ) W (k)
+
+[C. Multi-Head Attention for GAT]
+EQUATION
+
+[C. Multi-Head Attention for GAT]
+)
+
+[C. Multi-Head Attention for GAT]
+The upper bound of left side is computed by:
+
+[C. Multi-Head Attention for GAT]
+EQUATION
+
+[C. Multi-Head Attention for GAT]
+since ∥ X∥ F ≤ ∥X∥ F .

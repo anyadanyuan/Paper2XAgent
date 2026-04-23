@@ -1,0 +1,95 @@
+[Abstract]
+Diffusion models exhibit powerful generative capabilities enabling noise mapping to data via reverse stochastic differential equations. However, in image restoration, the focus is on the mapping relationship from low-quality to high-quality images. Regarding this issue, we introduce the Generalized Ornstein-Uhlenbeck Bridge (GOUB) model. By leveraging the natural mean-reverting property of the generalized OU process and further eliminating the variance of its steady-state distribution through the Doob's h-transform, we achieve diffusion mappings from point to point enabling the recovery of high-quality images from low-quality ones. Moreover, we unravel the fundamental mathematical essence shared by various bridge models, all of which are special instances of GOUB and empirically demonstrate the optimality of our proposed models. Additionally, we present the corresponding Mean-ODE model adept at capturing both pixel-level details and structural perceptions. Experimental outcomes showcase the state-of-the-art performance achieved by both models across diverse tasks, including inpainting, deraining, and super-resolution. Code is available at https: //github.com/Hammour-steak/GOUB.
+
+[Score-based Diffusion Model]
+The score-based diffusion model (Sohl-Dickstein et al., 2015; Ho et al., 2020; Song et al., 2021b ) is a category of generative model that seamlessly transitions data into noise via a diffusion process and generates samples by learning and adapting the reverse process (Anderson, 1982) . Assuming a dataset consists of n dimensional independent identically distributed (i.i.d.) samples, following an unknown distribution denoted by p(x 0 ). The time-dependent forward process of the diffusion model can be described by the following SDE:
+
+[Score-based Diffusion Model]
+EQUATION
+
+[Score-based Diffusion Model]
+where f : R n → R n is the drift coefficient, g t : R → R is the scalar diffusion coefficient and w t denotes the standard Brownian motion. Typically, p(x 0 ) evolves over time t from 0 to a sufficiently large T into p(x T ) through the SDE, such that p(x T ) will approximate a standard Gaussian distribution p prior (x). Meanwhile, the forward SDE has a corresponding reverse time SDE (Anderson, 1982) whose closed form is given by:
+
+[Score-based Diffusion Model]
+dx t = f (x t , t) -g 2 t ∇ xt log p(x t ) dt + g t dw t . (2)
+
+[Score-based Diffusion Model]
+Starting from time T , p(x T ) can progressively transform to p(x 0 ) by traversing the trajectory of the reverse SDE.
+
+[Score-based Diffusion Model]
+The score ∇ xt log p(x t ) can generally be parameterized as s θ (x t , t) and employ conditional score matching (Vincent, 2011) as the loss function for training:
+
+[Score-based Diffusion Model]
+EQUATION
+
+[Score-based Diffusion Model]
+where λ(t) serves as a weighting function, and if selected as g 2 t that yields a more optimal upper bound on the negative log-likelihood (Song et al., 2021a) . The second line is actually the most commonly used, as the conditional probability p(x t | x 0 ) is generally accessible. Ultimately, one can sample x T from the prior distribution p(x T ) ≈ p prior (x) and obtain the x 0 through the numerical solution of Equation (2) via iterative steps, thereby completing the generation process.
+
+[Training object]
+The score term ∇ xt log p(x t | x T ) can be parameterized by a neural network s θ (x t , x T , t) and can be estimated using the loss function (3). Unfortunately, training the score function for SDEs generally presents a significant challenge. Nevertheless, since the analytical form of GOUB is directly obtainable, we will introduce the use of maximum likelihood for training, which yields a more stable loss function.
+
+[Training object]
+We first discretize the continuous time interval [0, T ] into N sufficiently fine-grained intervals in a reasonable manner, denoted as {x t } t∈[0,N ] , x N = x T . We are concerned with maximizing the log-likelihood, which leads us to the following proposition:
+
+[Training object]
+Proposition 3.3. Let x t be a finite random variable describing by the given generalized Ornstein-Uhlenbeck process (4), for a fixed x T , the expectation of log-likelihood
+
+[Training object]
+E p(x0) [log p θ (x 0 | x T )
+
+[Training object]
+] possesses an Evidence Lower Bound (ELBO):
+
+[Training object]
+EQUATION
+
+[Training object]
+Assuming
+
+[Training object]
+p θ (x t-1 | x t , x T ) is a Gaussian distribution with a constant variance N (µ θ,t-1 , σ 2 θ,t-1 I)
+
+[Training object]
+, maximizing the ELBO is equivalent to minimizing:
+
+[Training object]
+EQUATION
+
+[Training object]
+)
+
+[Training object]
+EQUATION
+
+[Training object]
+where,
+
+[Training object]
+a = e -θt-1:t σ2 t:T σ2 t-1:T , b = 1 σ2 T (1 -e -θt )σ 2 t:T + e -2 θt:T σ2 t -(1 -e -θt-1 )σ 2 t-1:T + e -2 θt-1:T σ2 t-1 a
+
+[Training object]
+The derivation of the proposition is provided in the Appendix A.2. With Proposition 3.3, we can easily construct the training objective. In this work, we try to parameterized µ θ,t-1 from differential of SDE which can be derived from equation ( 9):
+
+[Training object]
+EQUATION
+
+[Training object]
+where ϵ t ∼ N (0, dtI), therefore:
+
+[Training object]
+µ θ,t-1 =x t -θ t + g 2 t e -2 θt:T σ2 t:T (x T -x t ) + g 2 t ∇ xt log p θ (x t | x T ), σ θ,t-1 =g t . (15)
+
+[Training object]
+Inspired by conditional score matching, we can parameterize noise as ϵ θ (x t , x T , t), thus the score ∇ xt log p θ (x t | x T ) can be represented as -ϵ θ (x t , x T , t)/σ ′ t . In addition, during our empirical research, we found that utilizing L1 loss yields enhanced image reconstruction outcomes (Boyd & Vandenberghe, 2004; Hastie et al., 2009) . This approach enables the model to learn pixel-level details more easily, resulting in markedly improved visual quality. Therefore, the final training object is:
+
+[Training object]
+EQUATION
+
+[Training object]
+Consequently, if we obtain the optimal ϵ * θ (x t , x T , t), we can compute the score
+
+[Training object]
+∇ xt log p(x t | x T ) ≈ -ϵ * θ (x t ,
+
+[Training object]
+x T , t)/σ ′ t for reverse process. Starting from a lowquality image x T , we can recover x 0 by using Equation ( 9) to perform reverse iteration.

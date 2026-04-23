@@ -1,0 +1,122 @@
+[Abstract]
+In real-world scenarios such as traffic and energy management, we frequently encounter large volumes of time-series data characterized by missing values, noise, and irregular sampling patterns. While numerous imputation methods have been proposed, the majority tend to operate within a local horizon, which involves dividing long sequences into batches of fixed-length segments for model training. This local horizon often leads to the overlooking of global trends and periodic patterns. More importantly, most methods assume the observations are sampled at regular timestamps, and fail to handle complex irregular sampled time series in various applications. Additionally, most existing methods are learned in an offline manner. Thus, it is not suitable for applications with rapidly arriving streaming data. To address these challenges, we propose BayOTIDE : Bayesian Online Multivariate Time series Imputation with functional decomposition. Our method conceptualizes multivariate time series as the weighted combination of groups of low-rank temporal factors with different patterns. We employ a suite of Gaussian Processes (GPs),each with a unique kernel, as functional priors to model these factors. For computational efficiency, we further convert the GPs into a statespace prior by constructing an equivalent stochastic differential equation (SDE), and developing a scalable algorithm for online inference. The proposed method can not only handle imputation over arbitrary timestamps, but also offer uncertainty quantification and interpretability for the downstream application. We evaluate our method
+
+[GP Prior and Joint Probability of Our Model]
+We assume X(t) is partially observed with missing values and noise on timestamps {t 1 , . . . t N }. We denote the observed values as Y = {y n } N n=1 , where y n ∈ R D , and its value at d-th channel is denoted as y d n . M ∈ {0, 1} D×N is the mask matrix, where 1 for observed values and 0 for missing values. The noise level is assumed to be the same for all the channels. Thus, we set the Gaussian likelihood for the observed values as:
+
+[GP Prior and Joint Probability of Our Model]
+EQUATION
+
+[GP Prior and Joint Probability of Our Model]
+)
+
+[GP Prior and Joint Probability of Our Model]
+where τ is the inverse of the noise level. Ω is the collection of observed values' location, namely
+
+[GP Prior and Joint Probability of Our Model]
+Ω = {(d, n) | M d,n = 1}. u d ∈ R 1×(Dr+Ds) is the d-th row of U, and v(t n ) ∈ R (Dr+Ds)×1 is the concatenation of v trend (t n ) and v season (t n ).
+
+[GP Prior and Joint Probability of Our Model]
+As v season (t) and v trend (t) are supposed to capture different temporal patterns, we adopt Gaussian Processes (GPs) with different kernels to model them. Specifically, we use the Matérn kernel to model the trend factors, and the periodic kernel to model the seasonality factors:
+
+[GP Prior and Joint Probability of Our Model]
+EQUATION
+
+[GP Prior and Joint Probability of Our Model]
+We further assume that Gaussian prior for u d and Gamma prior for τ . Then, the joint probability model is:
+
+[GP Prior and Joint Probability of Our Model]
+EQUATION
+
+[GP Prior and Joint Probability of Our Model]
+where Θ = {U, V(t), τ } denotes all model random variables for compactness. As each GP prior term corresponds to a companion form z(t) (see section(3.2)), we define the concatenation of all factors' companion forms as Z(t) and we have p(V(t)) = p(Z(t)) = P (Z(t 1 ))
+
+[GP Prior and Joint Probability of Our Model]
+N -1 i=1 P (Z(t n+1 )|Z(t n )).
+
+[Online Inference]
+With the joint probability ( 9), we further propose an online inference algorithm to estimate the running posterior of Θ.
+
+[Online Inference]
+We denote all observations up to time t n as D tn , i.e. D tn = {y 1 , . . . , y n }. When a new observation y n+1 arrives at t n+1 , we aimed to update the posterior distribution p(Θ | D tn ∪ y n+1 ) without reusing the previous observations D tn .
+
+[Online Inference]
+The general principle for online inference is the incremental version of Bayes'rule, which is:
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+However, the exact posterior is not tractable. Thus, we first apply the mean-field factorization to approximate the posterior. Specifically, we approximate the exact posterior as:
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+where
+
+[Online Inference]
+q(u d | D tn ) = N (m d n , V d n ) and q(τ | D tn ) = Gamma(τ | a n , b n )
+
+[Online Inference]
+are the approx. distributions for U and τ at time t n respectively. For Z(t), we design the approximated posterior as q(Z(t)
+
+[Online Inference]
+| D tn ) = n i=1 q(Z(t i )), where q(Z(t i )) are the concatenation of q(z(t i )) = N (µ i , S i ) across all factors. {{m d n , V d n }, {µ i , S i }, a n , b n , }
+
+[Online Inference]
+are the variational parameters of the approximated posterior to be estimated.
+
+[Online Inference]
+With mean-field approximation, (10) is still not feasible. It's because the multiple factors and weights interweave in the likelihood, and R.H.S of ( 10) is unnormalized. To solve it, we propose a novel online approach to update q(Θ | D tn ) with a closed form by adopting conditional Expectation Propagation(CEP) (Wang & Zhe, 2019) and chain structure of Z(t). Specifically, with current q(Θ | D tn ) and prior p(Θ), we can approximate each likelihood term of the newarriving observation y n+1 as several messages factors:
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+)
+
+[Online Inference]
+where Z is the normalization constant,
+
+[Online Inference]
+f d n+1 (u d ) = N (u d | md n+1 , Vd n+1 ) and f d n+1 (τ ) = Gamma(τ | ân+1 , bn+1 ), f d n+1 (Z(t n+1 )) = concat[N (μ i , Ŝi )
+
+[Online Inference]
+] are the approximated message factors of u d , τ , and Z(t n+1 ) respectively.
+
+[Online Inference]
+Then, we merge all the message factors of U and τ and follow the variational form of (10), and will obtain the update equations:
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+)
+
+[Online Inference]
+The message approximation ( 12) and the message merging procedure (13)( 14) are based on the conditional momentmatching technique, which can be done in parallel for all channels with closed-form update. We omit the derivation and exact formulas and refer the readers to the appendix.
+
+[Online Inference]
+Then, we present the online update of Z(t). With the chain structure of q(Z(t) | D tn ) and p(Z(t)), we found the update can be conducted sequentially. Specifically:
+
+[Online Inference]
+EQUATION
+
+[Online Inference]
+where p(Z(t n+1 )|Z(t n )) is the concatenation of all factors' transition given in (4). If we treat d f d n+1 (Z(t n+1 )) as the observation of the state space, (15) is the Kalman filter model (Kalman, 1960) . Thus, we can obtain the closedform update of q(Z(t)| | D tn ), which is the running posterior q(Z n |y 1:n ). After going through all observations, we run Rauch-Tung-Striebel (RTS) smoother (Rauch et al., 1965) to efficiently compute the full posterior of each state q(Z n |y 1:N ) from backward.
+
+[Online Inference]
+The online algorithm is summarized in Algorithm table 1: we go through all the timestamps, approximate the message factors with moment-matching, and run Kalman filter and message merging and update sequentially. For each timestamp, we can run moment-matching and posterior update steps iteratively several times with damping trick (Minka, 2001a) for better approximation. The algorithm is very efficient as the message approximation (12) can be parallel for different channels, and all the updates are closed-form. The
+
+[Algorithm 1 BayOTIDE]
+Input: observation Y = {y n } N n=1 over {t n } N n=1 , D s , D r , the kernel hyperparameters. Initialize q(τ ), q(W), {q(Z(t n ))} N n=1 . for t = 1 to N do Approximate messages by ( 12) for all observed channels in parallel. Update posterior of τ and U by ( 13) and ( 14) for all observed channels in parallel. Update posteriors of Z(t) using Kalman filter by (15). end for Run RTS smoother to obtain the full posterior of Z(t).
+
+[Algorithm 1 BayOTIDE]
+Return: q(τ ), q(W), {q(Z(t n ))} N n=1 algorithm is with time cost O(N (D s + D r )) and space cost O( Dr+Ds k=1 N (m k + m 2 k ) + D(D s + D r ))
+
+[Algorithm 1 BayOTIDE]
+where N is the number of timestamps, D is the number of channel of original time series, D r , D s are number of trends and seasonality factors respectively, m k is the order of the companion form of k-th factor's GP prior determined by the kernel types.

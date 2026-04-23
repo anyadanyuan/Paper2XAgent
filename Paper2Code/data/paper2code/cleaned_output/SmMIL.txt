@@ -1,0 +1,68 @@
+[Abstract]
+Multiple Instance Learning (MIL) is widely used in medical imaging classification to reduce the labeling effort. While only bag labels are available for training, one typically seeks predictions at both bag and instance levels (classification and localization tasks, respectively). Early MIL methods treated the instances in a bag independently. Recent methods account for global and local dependencies among instances. Although they have yielded excellent results in classification, their performance in terms of localization is comparatively limited. We argue that these models have been designed to target the classification task, while implications at the instance level have not been deeply investigated. Motivated by a simple observation -that neighboring instances are likely to have the same label -we propose a novel, principled, and flexible mechanism to model local dependencies. It can be used alone or combined with any mechanism to model global dependencies (e.g., transformers). A thorough empirical validation shows that our module leads to state-of-the-art performance in localization while being competitive or superior in classification. Our code is at https://github.com/Franblueee/SmMIL.
+
+[Method: Introducing smoothness in the attention values]
+In medical imaging, instance labels are a priori expected to exhibit local dependencies with their neighboring instances: an instance is likely to be surrounded by instances with the same label, see Fig. 2 . Recall that attention values are commonly used as a proxy to estimate these labels, so they should inherit this property. Based on these observations, our intuitive idea is to favor a smoothness property on the attention values. To this end, Sec. 4.1 formalizes the notion of smoothness through the Dirichlet energy. Sec. 4.2 presents the proposed smoothing operator Sm, which encourages smoothness as well as fidelity to the original signal. Sec. 4.3 proposes how to leverage Sm in the context of MIL, both in combination with global interactions (via transformers), and without them. We will build on top of the well-known and simple ABMIL to isolate the effect of Sm and avoid over-sophisticated models.
+
+[Modelling the smoothness]
+We represent each bag as a graph, where the nodes are the instances and the edges represent the spatial connectivity between instances. Formally, we suppose that each bag X ∈ R N ×D has been assigned an adjacency matrix A = [A ij ] ∈ R N ×N , defined by A ij > 0 if instances x i and x j are neighbors, and A ij = 0 otherwise. We assume that the adjacency matrix is symmetric, i.e. A ij = A ji .
+
+[Modelling the smoothness]
+The Dirichlet energy is a well-known functional that measures the variability of a function defined on a graph [42, 43] . In our case, we think of this function as the attention values f ∈ R N , recall Fig. 1a . As we shall see below, it will be necessary to define the Dirichlet energy for multivariate graph functions. Given a multivariate graph function U = [u 1 , . . . , u N ] ⊤ ∈ R N ×D defined on the bag graph, the Dirichlet energy of U is given by
+
+[Modelling the smoothness]
+EQUATION
+
+[Modelling the smoothness]
+where ∥•∥ 2 denotes the Euclidean norm, L is the graph Laplacian matrix L = D -A, D ∈ R N ×N is the degree matrix, D = Diag (D 1 , . . . , D N ), D n = i A ni . When D = 1 we obtain the definition for univariate graph functions, such as the attention values f .
+
+[Modelling the smoothness]
+Bounding E D on the attention values. In most deep MIL approaches, the attention values f are obtained by applying a neural network to instance-level features. One example is ABMIL [17] , which uses a two-layer perceptron defined by Eq. 1. Noting that tanh is a Lipschitz function with Lipschitz constant equal to 1, we arrive at the following chain of inequalities
+
+[Modelling the smoothness]
+EQUATION
+
+[Modelling the smoothness]
+where ∥•∥ 2 denotes the spectral norm. A more general result holds in the general case of an arbitrary multi-layer perceptron, see Appendix A for a proof. The above chain of inequalities tells us that if we want E D (f ) to be low, we can act on f itself or on previous layers (e.g., on F or on H), constraining the norm of the trainable weights to remain constant. This constraint can be achieved using spectral normalization [26] , and we study its influence in Sec. B.3. In the next subsection, we propose an operator that can be used on any of these levels (f , F, H) to reduce the Dirichlet energy of its output.
+
+[The proposed model]
+Here we propose how to leverage the operator Sm in the context of MIL. We build on top of the well-known ABMIL. First, we introduce SmAP, which integrates ABMIL with Sm and only accounts for local interactions. Second, we introduce SmTAP, which equips SmAP with a transformer encoder to account for global dependencies. The proposed models are depicted in Fig. 3b and Fig. 3c . The details about the architecture we have used can be found in Sec. B.2.
+
+[The proposed model]
+SmAP: Smooth Attention Pooling. This is represented in Fig. 3b . First, the bag of embeddings H is obtained as in ABMIL [17] , i.e. treating the instances independently. Then, the operator Sm is integrated within the attention pooling. Based on Eq. 4, this can be done on the attention values themselves or on previous representations. We consider three different variants: SmAP-late, SmAP-mid, SmAP-early. They act, respectively, on f (the attention values themselves), on F (i.e. before entering the last layer), and on H (i.e. before entering the attention-based pooling). Formally,
+
+[The proposed model]
+EQUATION
+
+[The proposed model]
+EQUATION
+
+[The proposed model]
+EQUATION
+
+[The proposed model]
+While SmAP-late and SmAP-mid act on the computation of the attention values, SmAP-early acts on the embedding that is passed to the attention-based pooling, see Fig. 8 in Appendix C. We use SmAP-early by default. Sec. 5.3 shows that results do not differ much among configurations.
+
+[The proposed model]
+SmTAP: Smooth Transformer Attention Pooling. This is represented in Fig. 3c . The only difference with SmAP is that the neural network acting independently on the instance embeddings is replaced by a transformer encoder to account for global dependencies. Based on the idea that smoothness can be imposed at previous locations, recall Eq. 4, we propose to also apply Sm to the transformer output:
+
+[The proposed model]
+EQUATION
+
+[The proposed model]
+where q, k, and v are the standard queries, keys, and values in the dot product self-attention [4] .
+
+[The proposed model]
+Notice that SmTAP uses Sm in two places: the first after the transformer encoder and the second in the aggregator. Naturally, one could think of other variants that use Sm in only one place or the other. In Sec. 5.3 we ablate these different configurations, leading to similar results.
+
+[B.2 Model and training configuration]
+We provide details about how we have implemented the proposed methods and how we have conducted the experiments.
+
+[B.2 Model and training configuration]
+Feature extractor. Due to the limited memory of the GPU, it is necessary to extract features from each instance. Otherwise, the bags will not fit in memory. In this work, we consider three options for the feature extractor, all of which are pre-trained in Imagenet: ResNet18 (P = 512), ResNet50 (P = 2048), and ViT-B-32 (P = 768). In addition, for CAMELYON16 we also consider ResNet50-BT 4 (P = 2048), which is a ResNet50 model pre-trained using the Barlow Twins Self-Supervised Learning method on a huge dataset of WSIs patches [38, 18] . The results reported in the main text correspond to ResNet18 for RSNA and PANDA, and to ResNet50-BT for CAMELYON16. We study how the choice of the feature extractor affects the results in Sec. B.3. Model architecture. We describe the architecture we have used for the proposed methods (SmAP and SmTAP). For the rest of the methods considered, we adopt their original implementations and default configurations, publicly available on their GitHub repositories. For the independent instance encoding part (see Fig. 3a and Fig. 3b ), the instance embeddings h n are obtained using one fully connected layer with 512 units (D = 512). For the attention-based pooling described by Eq. 1 and Eq. 2, we fix D = 512 and L = 100. The transformer encoder in Fig. 3c is implemented using two transformer layers. These layers use the standard multi-head attention mechanism equipped with skip connections and layer normalization [4] . We fix the key, query, and value dimensions to 128 and the number of heads to 8. We used the Pytorch's implementation of dot product attention 5 . Finally, the bag-embedding classifier was implemented using one fully connected layer.
+
+[B.2 Model and training configuration]
+Training setup and hyperparameters. To ensure fair and reproducible conditions, we trained every method under the same setup. The number of epochs was set to 50. We adopt the Adam optimizer [19] with the default Pytorch configuration. For the base learning rate, we considered two different values, 10 -4 and 10 -5 , since we noticed that models that do not use transformers obtained better results when the learning rate was higher. We report the best results for each model. We adopted a slow start using Pytorch's LinearLR scheduler with start_factor=0.1 and total_iters=5.
+
+[B.2 Model and training configuration]
+During training, we monitored the bag AUROC and cross-entropy loss in the validation set and kept the weights that obtained the best results. The batch size was set to 32 in RSNA and PANDA. In CAMELYON16, it was set to 4 for no-transformer methods, and to 1 for transformer-based methods. However, for SETMIL, we had to set it to 1 in PANDA and CAMELYON16 due to its high GPU memory requirements. In RSNA we weighted the loss function to account for the imbalance between positive and negative bags since we observed it to improve the results. All the experiments were performed on one NVIDIA GeForce RTX 3090.

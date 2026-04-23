@@ -1,0 +1,185 @@
+[Abstract]
+Spiking neural networks (SNNs) are promising brain-inspired energy-efficient models. Compared to conventional deep Artificial Neural Networks (ANNs), SNNs exhibit superior efficiency and capability to process temporal information. However, it remains a challenge to train SNNs due to their undifferentiable spiking mechanism. The surrogate gradients method is commonly used to train SNNs, but often comes with an accuracy disadvantage over ANNs counterpart. We link the degraded accuracy to the vanishing of gradient on the temporal dimension through the analytical and experimental study of the training process of Leaky Integrate-and-Fire (LIF) Neuron-based SNNs. Moreover, we propose the Complementary Leaky Integrate-and-Fire (CLIF) Neuron. CLIF creates extra paths to facilitate the backpropagation in computing temporal gradient while keeping binary output. CLIF is hyperparameter-free and features broad applicability. Extensive experiments on a variety of datasets demonstrate CLIF's clear performance advantage over other neuron models. Furthermore, the CLIF's performance even slightly surpasses superior ANNs with identical network structure and training conditions. The code is available at https://github.com/HuuYuLong/Complementary-LIF.
+
+[SNN Neuron Model]
+In the field of SNNs, the most common neuron model is the Leaky Integrate-and-Fire (LIF) model with iterative expression, as detailed in (Wu et al., 2018) . At each time step t, the neurons in the l-th layer integrate the postsynaptic current c l [t] with their previous membrane potential u l [t -1], the mathematical expression is illustrated in Eq.(1):
+
+[SNN Neuron Model]
+EQUATION
+
+[SNN Neuron Model]
+where τ is the membrane time constant. τ > 1 as the discrete step size is 1. The postsynaptic current c l [t] = W l * s l-1 [t] is calculated as the product of weights W l and spikes from the preceding layer s l-1 [t], simulating synaptic functionality, with * indicating either a fully connect or convolution's synaptic operation.
+
+[SNN Neuron Model]
+Neurons will generate spikes s l [t] by Heaviside function when membrane potential u l [t] exceeds the threshold V th , as shown in Eq.(2):
+
+[SNN Neuron Model]
+EQUATION
+
+[SNN Neuron Model]
+After the spike, the neuron will reset its membrane potential. Two ways are prominent in Eq.(3):
+
+[SNN Neuron Model]
+EQUATION
+
+[SNN Neuron Model]
+In this work, we chose the soft reset process because it will keep more temporal information (Meng et al., 2023) .
+
+[SNN Training with Surrogate Gradient]
+In the SG method, gradients are computed through BPTT (Wu et al., 2018) . This involves considering the temporal dimension, where the gradients at l-th layer for all timestep T are calculated as Eq.( 4):
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+where L represents the loss function. We define the ∂L
+
+[SNN Training with Surrogate Gradient]
+∂u l [t]
+
+[SNN Training with Surrogate Gradient]
+as the gradient error in this paper, the gradient error can be evaluated recursively:
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+where the ϵ l [t] for LIF model can be defined as follows in Eq.( 6):
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+In particular, for different layers, we have Eq.( 7):
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+where the ∂u l+1 [t]
+
+[SNN Training with Surrogate Gradient]
+∂s l [t]
+
+[SNN Training with Surrogate Gradient]
+= (W l+1 ) ⊤ . The detailed derivations can be found in the Appendix.B. In addition, the non-differentiable problem is solved by approximating
+
+[SNN Training with Surrogate Gradient]
+∂s l [t] ∂u l [t] ≈ H u l [t]
+
+[SNN Training with Surrogate Gradient]
+with the surrogate function H(•) (Neftci et al., 2019) . In this work, we chose the rectangle function (Wu et al., 2019; Su et al., 2023) :
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+where 1(•) served as the indicator function. Following (Meng et al., 2023) , the hyperparameter α is set to V th . In this case, Eq.( 6) can be rewritten as:
+
+[SNN Training with Surrogate Gradient]
+EQUATION
+
+[SNN Training with Surrogate Gradient]
+where γ ≜ 1 -1 τ , resulting γ ∈ (0, 1). Theoretical Analysis: Figure.2 reveals LIF's limitation of exploiting temporal information over a long period. This phenomenon is further investigated analytically. We separate the gradients into spatial
+
+[Method]
+EQUATION
+
+[Method]
+where P l [t] and T l [t, t ′ ] can be further expanded as:
+
+[Method]
+EQUATION
+
+[Method]
+EQUATION
+
+[Method]
+where the t ′ ∈ [t+1, T ]. By substituting Eq.( 9) into Eq.( 12), we obtain:
+
+[Method]
+EQUATION
+
+[Method]
+)
+
+[Method]
+The temporal gradient error is a production of two parts. For Part I, When the difference between t ′ and t is substantial, Part I gets very close to zero. The γ is defined as 1-1 τ , t denotes the time constant ∈ [1, + inf). Typically, γ is between 0.09 and 0.5. For example, in (Meng et al., 2023; Deng et al., 2021; Xiao et al., 2022) they set τ = 1.1, 1.3, 1.5, 2.0. For large t ′ -t, γ (t ′ -t) could barely contribute to the ϵ. This could explain our observation in Figure.2(a) .
+
+[Method]
+Part II can be expressed as:
+
+[Method]
+EQUATION
+
+[Method]
+)
+
+[Method]
+More in-depth discussions and proofs of this equation are available in the Appendix.D. From Eq.( 14), it can be seen part II has binary values of 0 or 1. More specifically, as long as the neuron fires at least once within the temporal range of (t + 1, T ), part II = 0 and the corresponding temporal gradient error will vanish and cannot contribute to the backpropagation training process. This is an unavoidable issue in vanilla-LIF models.
+
+[Method]
+The vanishing of part II is also demonstrated experimentally. For example, in the special case with timestep T = 2, part I equal to γ we could examine the influence of part II and the experiment results are given in Section.5.1.
+
+[Method]
+To summarize, Eq.( 12) demonstrates the temporal gradient vanishing due to the vanishing ϵ in two folds: the multiplication of gamma at large t ′ -t and the neuron spike between t ′ and t. We define this as the temporal gradient vanishing problem persists with the vanilla-LIF model.
+
+[The Design of Complementary LIF Model]
+To address the temporal gradient errors vanishing problem, we design the Complementary LIF (CLIF) model in-spired by biological principles (See detailed in Appendix.E).
+
+[The Design of Complementary LIF Model]
+Besides membrane potential, we introduce another state, termed "Complementary potential". To maintain the efficiency advantage of SNN as well as the broad applicability of our neuron model, our model contains no learnable parameters.
+
+[The Design of Complementary LIF Model]
+Decay of Complementary membrane potential: Between each timestep, the membrane potential is decayed by
+
+[The Design of Complementary LIF Model]
+1 τ u l [t]
+
+[The Design of Complementary LIF Model]
+. We design our Complementary potential to compensate for the membrane potential decay as follows:
+
+[The Design of Complementary LIF Model]
+EQUATION
+
+[The Design of Complementary LIF Model]
+We choose the Sigmoid function as σ, As σ ∈ (0, 1) and the Complementary potential also decays. Nevertheless, the more the membrane potential decays, the less the Complementary potential decays. This design aims to preserve the decayed portion of the membrane potential into Complementary membrane potential.
+
+[The Design of Complementary LIF Model]
+Increase of Complementary membrane potential: Within each timestep, the Complementary membrane potential is increased by firing
+
+[The Design of Complementary LIF Model]
+EQUATION
+
+[The Design of Complementary LIF Model]
+If the neuron has fired recently, the membrane potential m l [t] gets larger.
+
+[The Design of Complementary LIF Model]
+Redesign Reset process: We revisit the Vanilla LIF model as defined by equation Eq.( 1)-( 3), focusing particularly on LIF's reset process:
+
+[The Design of Complementary LIF Model]
+EQUATION
+
+[The Design of Complementary LIF Model]
+The redesigned reset process is given in Eq.( 18). Compared to the soft reset in Eq.( 17), each time the neuron fires, the membrane potential is subtracted by another term σ(m l [t]) related to the Complementary potential: 
+
+[The Design of Complementary LIF Model]
+EQUATION
+
+[The Design of Complementary LIF Model]
+)
+
+[The Design of Complementary LIF Model]
+if u = (1 -1 τ )u pre + c ▷ leaky & integrate s = Θ(u -V th ) ▷ fire m = m pre ⊙ σ 1 τ u + s u pre = u -s ⊙ (V th + σ(m)) ▷ reset m pre = m Return s ▷ spike output
+
+[The Design of Complementary LIF Model]
+Summarizing the above principles, the CLIF model can be derived as following:
+
+[The Design of Complementary LIF Model]
+EQUATION
+
+[The Design of Complementary LIF Model]
+The pseudo-code for the CLIF model is shown in Algorithm.1. The simplicity of CLIF is reflected in the fact that we only add two lines of code to LIF neuron model.
+
+[H. The Loss Comparing between LIF and CLIF]
+Following Figure .3 we extend the loss comparison to various tasks and network backbones. The results are shown in Figure .10, CLIF neuron's loss converges faster than LIF's, the converged loss is also lower. This tendency demonstrates the advantage of the CLIF neuron model. 

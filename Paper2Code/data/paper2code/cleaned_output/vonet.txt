@@ -1,0 +1,44 @@
+[Abstract]
+Unsupervised video object learning seeks to decompose video scenes into structural object representations without any supervision from depth, optical flow, or segmentation. We present VONet, an innovative approach that is inspired by MONet. While utilizing a U-Net architecture, VONet employs an efficient and effective parallel attention inference process, generating attention masks for all slots simultaneously. Additionally, to enhance the temporal consistency of each mask across consecutive video frames, VONet develops an object-wise sequential VAE framework. The integration of these innovative encoder-side techniques, in conjunction with an expressive transformer-based decoder, establishes VONet as the leading unsupervised method for object learning across five MOVI datasets, encompassing videos of diverse complexities. Code is available at https://github.com/hnyu/vonet.
+
+[IMPLEMENTATION]
+Backbone. In the very initial stage of the encoding step, we use a CNN backbone (Appendix A.2) to extract a feature map from each input image x t . The output from the backbone is shared between the parallel attention network (Eq. 3) and the slot encoder (Eq. 4), serving as the actual image input. Through parameter sharing, this backbone effectively reduces the total number of model parameters.
+
+[IMPLEMENTATION]
+It is trained from scratch using VONet's training loss.
+
+[IMPLEMENTATION]
+Parallel attention network. Directly training the attention network formulated in Eq. 3 could be challenging due to the very depth of the U-Net. In each individual frame, this challenge stems from the intricate path that the gradient signal must traverse, starting from the VAE decoder, progressing through the slot encoder, then navigating the U-Net, and ultimately reaching the context vectors.
+
+[IMPLEMENTATION]
+Consequently, the generated masks m t,k may be trapped in a trivial solution, where each pixel receives equal attention values from the K slots. To address this issue, we first convolve each context vector across the backbone feature locations, yielding an estimated attention mask for each slot. This operation is analogous to slot attention (Locatello et al., 2020; Kipf et al., 2021) . Subsequently, the U-Net is tasked with generating only delta changes (in log space) atop the estimated mask. This effectively establishes a special skip connection between the U-Net's input and output layers. We found that this skip connection plays a crucial role in learning meaningful attention masks.
+
+[IMPLEMENTATION]
+Slot encoder. We adopt a simple architecture for the slot encoder. The attention mask is first element-wise multiplied with the backbone feature map, with broadcasting in the channel dimension. Then, the per-frame slot latent y t,k is obtained by performing average pooling on the masked feature map across the spatial domain. While there may be other possible implementations of the slot encoder, we have found this straightforward approach to be highly effective and easy to train.
+
+[IMPLEMENTATION]
+Computing the per-trajectory slot latent. We instantiate the RNN for calculating r t,k (Eq. 4) as a GRU (Cho et al., 2014) followed by an MLP. Specifically, it is defined as
+
+[IMPLEMENTATION]
+EQUATION
+
+[IMPLEMENTATION]
+LayerNorm (Ba et al., 2016) ensures that the latent values will not explode even for a long video.
+
+[IMPLEMENTATION]
+Computing the KLD. We model both the posterior and prior distributions as diagonal Gaussians.
+
+[IMPLEMENTATION]
+When minimizing the KLD loss in Eq. 8, two primary influences come into play: the posterior is regularized by the prior, and conversely, the prior is shaped towards the posterior. These dynamics jointly contribute to the learning of slot representations. Following Hafner et al. (2020) , we use a KL balancing coefficient κ > 0.5 to accelerate the learning of the prior relative to the posterior. This is done to prevent the regularization of the posterior by a poorly trained prior. Mathematically,
+
+[IMPLEMENTATION]
+EQUATION
+
+[Method Image FG-ARI Image mIoU MOVI-C MOVI-D MOVI-E MOVI-C MOVI-D MOVI-E MONet]
+24.8±0.1 22.0±1.7 18.8±0.9 34.8±0.9 17.4±2.0 13.6±1.6 VONet 47.0±2.8 51.0±1.2 50.3±3.6 36.2±3.0 28.5±0.6 18.1±1.3
+
+[Method Image FG-ARI Image mIoU MOVI-C MOVI-D MOVI-E MOVI-C MOVI-D MOVI-E MONet]
+Table 2 : Results of VONet and MONet in the single-frame scenario.
+
+[Method Image FG-ARI Image mIoU MOVI-C MOVI-D MOVI-E MOVI-C MOVI-D MOVI-E MONet]
+Figure 9 : Illustration of the unrolling process for VONet on a video sequence. Only slot k is depicted in the diagram, with the other slots following similar flows. Slot computations can be parallelized within each step, except when inter-slot interaction is required (e.g. initial slot transformer and parallel attention). For simplicity, we omit depicting the dependencies on the input frames x t .

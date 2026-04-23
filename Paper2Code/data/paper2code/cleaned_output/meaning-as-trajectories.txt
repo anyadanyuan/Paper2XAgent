@@ -1,0 +1,101 @@
+[Abstract]
+We propose to extract meaning representations from autoregressive language models by considering the distribution of all possible trajectories extending an input text. This strategy is prompt-free, does not require fine-tuning, and is applicable to any pre-trained autoregressive model. Moreover, unlike vectorbased representations, distribution-based representations can also model asymmetric relations (e.g., direction of logical entailment, hypernym/hyponym relations) by using algebraic operations between likelihood functions. These ideas are grounded in distributional perspectives on semantics and are connected to standard constructions in automata theory, but to our knowledge they have not been applied to modern language models. We empirically show that the representations obtained from large models align well with human annotations, outperform other zero-shot and prompt-free methods on semantic similarity tasks, and can be used to solve more complex entailment and containment tasks that standard embeddings cannot handle. Finally, we extend our method to represent data from different modalities (e.g., image and text) using multimodal autoregressive models. Our code is available at: https://github.com/tianyu139/ meaning-as-trajectories † Equal contribution * Work done during an internship at AWS AI Labs.
+
+[METHOD]
+Preliminaries. We use A to denote a finite vocabulary of tokens and A * to indicate the set of all variable-length finite sequences of tokens in A. We view a language model as a map M (•|•) : 
+
+[METHOD]
+A * × A * → [0, 1] associating a "prompt" sequence s ∈ A *
+
+[METHOD]
+where P M is the probability over the next token defined by the model. When s = ϵ is the empty string, we write M (t) instead of M (t|ϵ).
+
+[METHOD]
+Meaning representation for prompts. We define the syntactic meaning representation of a prompt string s for the model M as the function M s := M (-|s) : A * → [0, 1]. This definition fully captures the way in which the model interprets the string s. For example, if M s = M t , then the prompts s and t are indistinguishable based on their continuations for the model. Note that the function M s (t) that represents the string s is an infinite dimensional object, since its domain are all finite sequences t ∈ A * . One of the challenges we will handle later is how to effectively use this representation through sampling.
+
+[METHOD]
+We remark that we can consider a particular case of eq. ( 1) where the domain of M s is restricted only to strings t ∈ A 1 comprising single tokens, instead of arbitrary length strings. This represents a sentence using the score distribution over the immediate next token, and is a common baseline used to embed sentences with autoregressive models. However, it is easy to see that this is a very incomplete semantic representation: for example, common tokens such as "The" are often the most likely next token regardless of the actual meaning of the prompt. This limitation will be evident in our experimental results.
+
+[METHOD]
+Sets of continuations. The function M s : A * → [0, 1] essentially represents the meaning of a string as the distribution of trajectories that extend that string. To guide intuitions, it is often useful to consider the more restricted setting where scores are binary M s : A * → {0, 1}. This can be interpreted as the characteristic function of the set of strings t that are feasible continuations of s according to the model. One advantage of this interpretation is that it makes explicit that meaning representations in our framework are not simple vectors, but rich objects that can be naturally manipulated though set-theoretic operations such as intersections -a fact that we will use later. This simpler setting also allows a direct connection with automata theory: For any language L ⊂ A * , the sets of feasible continuations s -1 L := {t : st ∈ L} of prefixes s can seen as the set of states of a canonical "minimal automaton" accepting the language (Hopcroft et al., 2007) . In a similar fashion, the sets M s of strings accepted by the model prompted with s can be interpreted as a canonical "model of behaviors" for the LLM. We refer to Appendix G for a discussion on these topics.
+
+[METHOD]
+Semantic similarity. Given two prompts u and v, we define their semantic distance as the distance d(M u , M v ) between their representation M u and M v , where d denotes a distance function that can be picked arbitrarily. For our experiments, we use:
+
+[METHOD]
+d(M u , M v ) = E t∼ 1 2 (Mu+Mv) |log M u (t) -log M v (t)| (2) = E t∼ 1 2 (Mu+Mv) 1 m m i=1 log p(a i |u, a <i ) p(a i |v, a <i ) .
+
+[METHOD]
+This amounts to comparing the expected difference in log-likelihood between the two models on continuations t ∼ 1 2 (M u + M v ) sampled with equal probability from either prompts. We ablate on other natural choices of distances in Appendix A.2. As noted above, explicitly integrating eq. ( 2) over all possible trajectories t is not feasible. Rather, we approximate the expectation through Monte Carlo sampling. More precisely, we sample n trajectories T u = {t u i } n i=1 for the prompt u, where t u i ∼ M u , and n trajectories T v for the prompt v, each of length up to a fixed hyperparameter m.
+
+[METHOD]
+We then approximate eq. ( 2) as:
+
+[METHOD]
+d(M u , M v ) ≈ 1 2n t∈Tu⊔Tv |log M u (t) -log M v (t)|
+
+[METHOD]
+The steps we follow are detailed in Algorithm 1. More sophisticated approaches for approximating the distance could be explored in future work.
+
+[METHOD]
+A related baseline for comparing the similarity of two sentences u and v is the likelihood of their concatenation, M (uv) or M (v|u). However, perplexity-based measures are known to be unreliable when directly used to compare different sentences, even when the sentences have the same length (Wang et al., 2022; Meister & Cotterell, 2021) . Moreover, the fact that v is a likely continuation of u does not necessarily imply that u and v have the same meaning. Our method circumvents these problems: rather than computing M (v|u), we compare the values of M u (t) = M (t|u) and M v (t) = M (t|v) on a common set of continuations t ∈ T u ⊔ T v . This strategy is arguably more natural and also, as our experiments will demonstrate, much more effective. While our notions of semantic similarity are defined from the perspective of language models, our experiments in Section 4 suggest that they increasingly align with that of human annotators as model size and training data increases, and vastly outperform that of next-token/likelihood baselines.
+
+[Algorithm 1 Similarity in Meaning Space]
+Require: Model M , Strings u and v, num. trajectories n, max trajectory length m, distance d T u ← Sample n trajectories from u up to [EOS] or length m, whichever occurs sooner
+
+[Algorithm 1 Similarity in Meaning Space]
+T v ← Sample n trajectories from v up to [EOS] or length m, whichever occurs sooner Initialize M u = M v = ∅ for t = a 1 . . . a mt ∈ T u ⊔ T v do ▷ Compute trajectory likelihood M u [t] ← mt i=1 P M (a i |u a 1 . . . a i-1 ) 1/mt M v [t] ← mt i=1 P M (a i |v a 1 . . . a i-1 ) 1/mt end for return d(M u , M v )
+
+[Algorithm 1 Similarity in Meaning Space]
+▷ Return similarity score
+
+[Algorithm 1 Similarity in Meaning Space]
+Containments of semantic representations. Our representations M u belong to the space of functions [0, 1] A * , which we can view as the "meaning space" for the vocabulary A. Note that this space has a natural partial order: given M, N ∈ [0, 1] A * , we say that M < N if t ∈ A * we have M (t) < N (t), which intuitively means that any feasible sentence for M is also feasible for N . More generally, we can define operations of meet and join as M ∧ N := min(M, N ) and M ∨ N := max(M, N ), respectively. These Boolean-like operations on meanings can be used to investigate more complex (even asymmetric) meanings relationships, in addition to similarity. These definitions require using unnormalized scores, which is why we consider [0, 1] A * instead of the set of probabilities over A * as our meaning space. Note that, in contrast, traditional vector-space embeddings are ill-suited for representing such relationships.
+
+[Algorithm 1 Similarity in Meaning Space]
+In our experiments, we explore how this sort of (syntactic) meaning containment is related to entailment (⇒) in the conventional sense. As we discuss in Appendix F, given two sentences u and v such that u ⇒ v, the relation M v < M u is "more true" than M u < M v . Note that, for our particular score representation in eq. ( 1), neither M v < M u nor M v > M u can hold exactly; however we can quantify how far they are from being true. Based on this, we define the Entailment Test:
+
+[Algorithm 1 Similarity in Meaning Space]
+If d(M u ∧ M v , M v ) < d(M u ∧ M v , M u ), then u ⇒ v; otherwise, v ⇒ u.
+
+[Algorithm 1 Similarity in Meaning Space]
+Semantic representation for substrings. The meaning representation M s for a string considered until now assumes that s is used as a prompt, i.e., as a prefix within a longer string. We can also modify our definition to account for strings in any position, and in particular to words. Specifically, for any string u, we consider a meaning representation M u :
+
+[Algorithm 1 Similarity in Meaning Space]
+A * × A * → [0, 1] defined by: M u (s, t) := M (s u t).
+
+[Algorithm 1 Similarity in Meaning Space]
+Intuitively, the meaning of a word/string is the likelihood function of it appearing in between all "contexts" (s, t) -a very natural idea in distributional semantics, resembling for example the skipgram model used in word2vec (Mikolov et al., 2013) .
+
+[Algorithm 1 Similarity in Meaning Space]
+Using this representation, we can define partial ordering of meanings in the same way considered above for prompts. However, unlike the previous setting, sampling the support of M u or M v (contexts that contain u and v) is not trivial, since LLMs can only sample "forward" trajectories. In practice, we circumvent this issue by using a text corpus, WikiText (Merity et al., 2016) , to retrieve, rather than sample, paragraphs containing the given word to use as context. In Section 4, our experiments show that the partial ordering in semantic space aligns quite well with "meaning containment" in natural language, i.e., with hyponym/hypernym relations defined in WordNet (Miller, 1995) . Specifically, if v is a hyponym of u, then it is natural to expect that M v < M u (see Appendix F for a justification). Thus, given two words (u, v) between which a hyponym relation exists, we define the Hyponym Test:
+
+[Algorithm 1 Similarity in Meaning Space]
+If d(M u ∧ M v , M v ) < d(M u ∧ M v , M u ), then v is a hyponym of u;
+
+[Algorithm 1 Similarity in Meaning Space]
+otherwise, u is a hyponym of v. We refer to Algorithm 2 in the Appendix for full details.
+
+[Algorithm 1 Similarity in Meaning Space]
+Semantic similarity for different modalities. The meaning representations we consider are applicable to any model that assigns likelihoods to sequences of tokens. In particular, they can be applied without modification to multimodal autoregressive models which accept both image and text prompts. In Section 4, we show how meaning representations obtained from the multimodal model LLaVA (Liu et al., 2023) can effectively compute semantic image-text and image-image distances.
+
+[C ADDITIONAL IMPLEMENTATION DETAILS]
+We use the base GPT-2, GPT-2-XL (Radford et al., 2019) , LLaMA-13B (Touvron et al., 2023) and Falcon-7B (Almazrouei et al., 2023) for experiments on models trained with unsupervised pre-training objectives. We use Vicuna-13B (Chiang et al., 2023) and StableVicuna-13B1 as the instruction-tuned version and the RLHF-trained (reinforcement learning with human feedback) ver- 53.29 sion of LLaMA-13B respectively. We use LLaVA1 (Liu et al., 2023) for our multimodal experiments, which is trained to accept both image and text inputs.
+
+[C ADDITIONAL IMPLEMENTATION DETAILS]
+Technically, computing distances with Equation (2) when compositional terms are involved would require sampling trajectories from the composed distributions. In particular, evaluating d(M u ∧ M v , M u ) in the Entailment test would require sampling trajectories T u∧v from the composed distribution M u ∧ M v , then approximating Equation ( 2) with the set of trajectories T u∧v ⊔ T u . For the sake of simplicity and computational efficiency, we instead compute M u ∧ M v over the set of trajectories T u ⊔ T v sampled from u and v, which we empirically found to be similarly effective when applied to downstream tasks. We show in Figure 4 that the alignment of our method on semantic textual similarity with human annotators scales with model size.
+
+[C ADDITIONAL IMPLEMENTATION DETAILS]
+T u = {(s i , t i )} n i=1 ← Sample n paragraphs (s i u t i ) containing u from D corpus T v = {(s i , t i )} 2n i=n+1 ← Sample n paragraphs (s i v t i ) containing v from D corpus T ← T u ⊔ T v Initialize M u = M v = M u ∧ M v = ∅ for t = (a 1 . . . a mt , b 1 . . . b m ′ t ) ∈ T u ⊔ T v do M u [t] ← mt i=1 P M (a i |a 1 . . . a i-1 ) • P M (u|a 1 . . . a mt )• m ′ t i=1 P M (b i |a 1 . . . a mt u b 1 . . . b i-1 ) 1/(mt+m ′ t +1) M v [t] ← mt i=1 P M (a i |a 1 . . . a i-1 ) • P M (v|a 1 . . . a mt )• m ′ t i=1 P M (b i |a 1 . . . a mt v b 1 . . . b i-1 ) 1/(mt+m ′ t +1) M u [i] ∧ M v [t] ← min(M u [t], M v [t]) end for if d(M u , M u ∧ M v ) < d(M v , M u ∧ M v ) then return u hyponym of v else return v hyponym of u end if D ADDITIONAL VISUALIZATIONS D.1 PERFORMANCE SCALES WITH MODEL SIZE
+
+[E.2 ALIGNMENT PROMPTS FOR VISION-LANGUAGE MODELS]
+In the main paper, we presented prompt-free approaches for extracting similarity scores from multimodal inputs. However, we note that by our definitions, LLaVA (Liu et al., 2023) does not technically attribute the same meaning to images and captions. We visualize this in Figure 6 , where we show that image and caption inputs are continued very differently by the model. For instance, given an image, LLaVA generally attempts to generate a caption. On the other hand, when given a caption, LLaVA simply continues it, often in an unpredictable manner. In spite of this misalignment, there exists sufficient overlap in likelihood scores to outperform all baselines as observed in Table 2 of the main paper.
+
+[E.2 ALIGNMENT PROMPTS FOR VISION-LANGUAGE MODELS]
+We demonstrate that a prompt can optionally be used to align the meaning representations for vision and text modalities for the purposes of semantic comparison. We achieve this by conditioning the caption continuations to match the continuations of images. In particular, we append "This is a caption for an image. Describe this image. This image shows" to the text inputs, and "Describe this image. This image shows" to image inputs. Figure 6 (Right) shows that this successfully aligns the trajectories of both modalities. Indeed Table 2 of the main paper shows that this improves over the prompt-free version of our method on the CxC-SITS task by 18.4%, and outperforms the CLIP paragon by 13.3%.
+
+[E.2 ALIGNMENT PROMPTS FOR VISION-LANGUAGE MODELS]
+A young man holding an umbrella next to a herd of cattle.
+
+[E.2 ALIGNMENT PROMPTS FOR VISION-LANGUAGE MODELS]
+Image Trajectories a young child, likely a boy, standing amongst a young man, presumably a farmer, a small child, possibly a young boy, standing a young child standing in a bamboo a small child, likely a girl, standing among … Text Trajectories a young man holding an umbrella next to a young man standing next to a herd of a young man standing next to a herd of a young man standing beside a herd of cattle a young man standing next to a herd of … 

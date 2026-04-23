@@ -1,0 +1,80 @@
+[Abstract]
+Large language models (LLMs) have shown remarkable performance in various natural language processing tasks. However, a primary constraint they face is the context limit, i.e., the maximum number of tokens they can process. Previous works have explored architectural changes and modifications in positional encoding to relax the constraint, but they often require expensive training or do not address the computational demands of self-attention. In this paper, we present Hierarchical cOntext MERging (HOMER), a new training-free scheme designed to overcome the limitations. HOMER uses a divide-and-conquer algorithm, dividing long inputs into manageable chunks. Each chunk is then processed collectively, employing a hierarchical strategy that merges adjacent chunks at progressive transformer layers. A token reduction technique precedes each merging, ensuring memory usage efficiency. We also propose an optimized computational order reducing the memory requirement to logarithmically scale with respect to input length, making it especially favorable for environments with tight memory restrictions. Our experiments demonstrate the proposed method's superior performance and memory efficiency, enabling the broader use of LLMs in contexts requiring extended context. Code is available at https://github.com/alinlab/HOMER.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+We propose a divide-and-conquer approach to handle the quadratic computation of self-attention more efficiently. We divide the long input into multiple chunks and process the local chunks with the usual self-attention. Although some previous studies have adopted a similar approach (Ivgi et al., 2023; Bertsch et al., 2023) , they independently handle each chunk, possibly restricting the richness of the intermediate embeddings as they only have access to local information. In contrast, we progressively merge adjacent chunks as they move through the transformer layers, enabling the chunks to see each other. However, naïvely concatenating the adjacent chunks lengthens the resulting chunk and adds a significant computational burden. Thus we propose to use a token reduction technique to shorten each chunk before merging.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+By hierarchically reducing and merging the context embeddings, our method bypasses the quadratic computations required by the self-attention mechanism. This approach not only aims at computational efficiency but also preserves the richness of the context. The detailed process of hierarchical context merging is carried out as follows.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+Division of long context into multiple chunks. The first step of our method is to divide the long context into uniform chunks. However, simply slicing the input into chunks encounters issues in the network's initial layers where each chunk cannot see each other. This approach restricts most tokens from accessing the starting instructions, harming the resulting embeddings' quality. Moreover, the tokens at the end miss the global context, which is essential for generating subsequent tokens. We address this by attaching the initial and concluding parts of the prompt to every segment (i.e., treating them as shared prefixes and suffixes), ensuring each chunk contains the instruction and the ending tokens.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+Token reduction on individual chunks. To keep the resulting chunk's length short after merging, we adopt token reduction techniques, which have been widely studied in the field of efficient vision transformers. For vision transformers (Dosovitskiy et al., 2021) , dropping the tokens that receive minimal attention from the [CLS] token (i.e. the classification token) is known to be a simple and effective token pruning method (Haurum et al., 2023) . Inspired by this, we propose to prune the tokens receiving minimal attention from the final token in each chunk. If the chunks contain affixes, we do not prune the tokens corresponding to the affixes.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+In practice, we identified a position bias in simple attention-based pruning where tokens near the end often receive higher attention weights. To rectify this, We incorporate a calibration technique (Zhao et al., 2021) . By averaging the attention weights of the last token with respect to the tokens at each position ahead, we derive the bias logits. These bias logits are subtracted from the attention logits during the token reduction to refine token pruning. In summary, the final token pruning is performed by pruning a fixed number of tokens according to the significance score s sig defined as follows:
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+EQUATION
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+where s i sig denotes the significance score of a token at position i, l i att denotes the token's attention logit, and l dist(i) bias denotes the bias logit corresponding to the token's distance from the final token, dist(i).
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+Merging chunk embeddings. After shortening, adjacent chunks are concatenated to form a unified chunk. This iterative process of reduction and merging across layers ensures individual chunks converge into a single chunk at the final layers. If the chunks include affixes, direct concatenation might lead to redundancy; we address this by simply averaging the duplicates.
+
+[HIERARCHICAL MERGING OF CONTEXT EMBEDDINGS]
+Handling position ids. Management of position ids is an important design choice for our approach. While dynamically scaling the position ids through conventional methods like PI, NTK, and YaRN is viable, these techniques tend to underperform with increased scale factors, being less effective for extended contexts. To circumvent this issue, we reuse the same position ids across different chunks. For affixes, we ensure that corresponding tokens in different chunks are assigned the same ids for consistency across the chunks.
+
+[PROPAGATIVE REFINEMENT OF LOWER-LAYER EMBEDDINGS]
+As depicted in Figure 2 , the hierarchical context merging produces embeddings characterized by a trapezoidal shape. The higher-layer embeddings are concise, while the lower-layer ones remain extended. To further reduce the computational burden for lower layers, we introduce an additional refinement step after token reduction, called propagative refinement.
+
+[PROPAGATIVE REFINEMENT OF LOWER-LAYER EMBEDDINGS]
+The process is straightforward: when a token is pruned in the upper layers, the corresponding tokens are also pruned in the lower-layer embeddings. Therefore, the pruning decision of the upper layers propagates back to the lower layers. The synchronized pruning across layers results in shorter, uniform embeddings for each layer. For better understanding, we have added a detailed illustration in Appendix D demonstrating the process step-by-step. The rationale behind this is an intuition that the upper layers have a better ability to identify the important tokens. Thus, we apply pruning in the upper layers and reflect them in the lower layers. After performing hierarchical merging and propagative refinement, we end up with standardized, fixed-length embeddings for every layer.
+
+[PROPAGATIVE REFINEMENT OF LOWER-LAYER EMBEDDINGS]
+Using the refined embeddings for further generation. Conventional implementation of autoregressive language models often cache the key and value embeddings in order to avoid redundant computation. This technique is commonly known as kv-caching (Chen, 2022) . As the refined embeddings have the same length for every layer, they can easily be integrated with the kv-cache implementation by simply replacing it for the generation process.
+
+[LANGUAGE MODELING]
+In this section, we investigate the language modeling fluency of HOMER using the perplexity metric.
+
+[LANGUAGE MODELING]
+To this end, we sample 25 long documents from the PG-19 dataset (Rae et al., 2019) and measure the perplexity on documents truncated to specified evaluation lengths.
+
+[LANGUAGE MODELING]
+The core of our methodology is the compression of long context into short embeddings. Aligned with this premise, perplexity is measured iteratively: preceding contexts are condensed with HOMER, and the perplexity of the subsequent segment is deduced based on these compressed contexts. Throughout this procedure, the initial 4k tokens were evaluated using unmodified models, with subsequent tokens assessed in 2k token increments. In every experiment, the last 100 tokens of the input are treated as a suffix.
+
+[LANGUAGE MODELING]
+As illustrated in Table 3 , HOMER maintains minimal perplexity values across long documents spanning up to 64k tokens. A more fine-grained perplexity plot is provided in Appendix F. While all other methods either suffer from significant degradation beyond certain thresholds (attributed to In this section, we demonstrate the effectiveness of the design choices made for our method. Specifically, we focus on (1) the proposed token pruning criteria and (2) the method for refining the lowerlayer embeddings after applying hierarchical merging. Following the settings of Section 4.1, we compared the retrieval accuracy of each candidate.
+
+[LANGUAGE MODELING]
+Effectiveness of our token pruning method. To reduce redundant tokens in the intermediate Transformer layers, we define a calibrated significance score based on the attention weights each token receives from the last token in the chunk. In the pruning procedure, K tokens with the lowest significance scores are dropped. We demonstrate the effectiveness of this criteria by comparing it to a simple baseline, which randomly selects which token to drop. We additionally report the performance with uncalibrated pruning criteria to further emphasize the effectiveness of significance weight calibration. As illustrated in Table 4a , the use of attention-based significance scores and calibration provide an effective proxy for determining the importance of given tokens.
+
+[LANGUAGE MODELING]
+Effectiveness of propagative refinement. Another key component of our method is the refinement of the lower-layer embeddings, described as propagative refinement. To evaluate its effectiveness, we compare its performance with three alternative approaches (i) not refining the lower-layer embeddings, (ii) gathering random tokens, and (iii) gathering tokens according to their significance score at each layer. As illustrated in Table 4b , propagative refinement achieves the best performance. We credit this to the ability of upper transformer layers to understand high-level information, with their attention weights successfully representing token significance. By selectively providing more significant tokens, propagative pruning reduces computation while improving performance. 
+
+[B IMPLEMENTATION DETAILS]
+Context merging schedule. Following the formulation in Figure 3 , we detail how many layers are assigned to each level of the binary tree. The basic principle is to assign an equal number of layers to each node. In practice, we noticed that additionally assigning more layers to the leaf nodes helps improve the overall performance. We assign 12 additional layers for 7b models and 20 layers for 13b models.
+
+[B IMPLEMENTATION DETAILS]
+Calibration. For all models (HOMER and HOMER+baselines), calibration is performed using 100 text corpora segments from the validation set and the test set of WikiText-103 (Merity et al., 2016) .
+
+[E INFERENCE SPEED ANALYSIS]
+In this section, we discuss the inference speed of HOMER. Besides reducing memory requirements, HOMER also provides a significant speedup due to the extensive reduction in computation. Table 8 illustrates the average inference time for HOMER and other baselines. Specifically, we compare the time required to generate 20, 50, and 100 tokens, conditioned on 8k, 16k, and 32k contexts. The main source of performance gain in HOMER, as described in Section 4.5, is the computation reduction. The following points highlight these improvements:
+
+[E INFERENCE SPEED ANALYSIS]
+• The divide-and-conquer approach circumvents the quadratic computation associated with selfattention. • Token pruning significantly reduces the number of tokens to process, especially in the upper layers. • HOMER compresses long contexts into short embeddings, substantially reducing the size of the kv-cache. This step lowers the computational demand during the decoding stage.
+
+[E INFERENCE SPEED ANALYSIS]
+As evident from the results, HOMER provides a significant speedup (up to 162.6%) compared to the baseline methods. It's important to note that our method is even more beneficial when generating longer outputs conditioned on longer inputs, underscoring its effectiveness in handling long contexts.
+
+[E INFERENCE SPEED ANALYSIS]
+We also emphasize that the additional computation introduced by HOMER is minimal. The hierarchical context merging process involves relatively cheap operations, including matrix subtraction (calibration), gathering by index (calibration, token pruning, and propagative refinement), top-k selection (token pruning), and tensor concatenation (merging). Conversely, it reduces more costly operations such as matrix multiplication for computing self-attention.
+
+[F PERPLEXITY PLOT FOR LANGUAGE MODELING EXPERIMENT]
+In this section, we provide a fine-grained perplexity plot for the fluency experiment in Section 4.3. Figure 6 : Perplexity plot on 100 long samples from passkey retrieval, measured with Llama-2-7b-chat. HOMER achieves lower perplexity when conditioned on longer inputs, demonstrating its ability to effectively handle the long inputs. Perplexity values on landmark lengths are provided in Table 9 . In this section, we provide additional perplexity experiments on a more challenging benchmark where accessing previous long contexts is essential. To achieve this, we reformulated the passkey retrieval task in Section 4.1 and measured the perplexity of ground-truth answer phrases (e.g., 'The passkey is 12321.'). The results are demonstrated in Figure 6 and Table 9 .
+
+[F PERPLEXITY PLOT FOR LANGUAGE MODELING EXPERIMENT]
+As the results show, HOMER exhibits lower perplexity when conditioned on longer contexts, achieving its best performance with 64k inputs. Furthermore, HOMER outperforms the long-context competitors with context lengths of 16k and beyond. These experiments emphasize the efficacy of HOMER in utilizing long contexts, particularly in scenarios where accessing such context is necessary.

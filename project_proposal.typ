@@ -122,6 +122,6 @@
 
 #align(center)[
   #text(size: 9pt, style: "italic")[
-    项目代码库：github.com/paper2XAgent | 提交日期：2026-04-23
+    项目代码库：https://github.com/anyadanyuan/Paper2XAgent
   ]
 ]

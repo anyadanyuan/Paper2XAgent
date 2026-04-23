@@ -12,9 +12,18 @@ __pycache__/
 
 # 环境
 .env
+.env.local
+.env.*.local
 *.egg-info/
 dist/
 build/
+
+# 敏感信息
+*.key
+*.secret
+*_secret.py
+config_local.py
+secrets.yaml
 
 # IDE
 .vscode/
